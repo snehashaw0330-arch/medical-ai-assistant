@@ -1,5 +1,6 @@
 from backend.medicine_api import router as medicine_router
 from fastapi import FastAPI, UploadFile, File
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import pandas as pd
 import joblib
@@ -8,6 +9,13 @@ import easyocr
 from rapidfuzz import process
 
 app = FastAPI()
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # =========================
 # OCR SETUP
@@ -80,27 +88,54 @@ def home():
 # =========================
 # DISEASE PREDICTION API
 # =========================
-
 @app.post("/predict-disease")
 def predict_disease(data: SymptomsInput):
 
-    input_data = [0] * len(symptom_columns)
+    try:
 
-    for symptom in data.symptoms:
+        input_data = [0] * len(symptom_columns)
 
-        symptom = symptom.strip().lower()
+        for symptom in data.symptoms:
 
-        if symptom in symptom_columns:
-            index = list(symptom_columns).index(symptom)
-            input_data[index] = 1
+            symptom = symptom.strip().lower()
 
-    prediction = model.predict([input_data])
+            if symptom in symptom_columns:
+                index = list(symptom_columns).index(symptom)
+                input_data[index] = 1
 
-    disease = encoder.inverse_transform(prediction)[0]
+        # Probability prediction
+        probabilities = model.predict_proba([input_data])[0]
 
-    return {
-        "predicted_disease": disease
-    }
+        # Top 3 indexes
+        top_3_indexes = probabilities.argsort()[-3:][::-1]
+
+        predictions = []
+
+        for index in top_3_indexes:
+
+            disease = encoder.inverse_transform([index])[0]
+
+            confidence = round(
+                probabilities[index] * 100,
+                2
+            )
+
+            predictions.append({
+                "disease": disease,
+                "confidence": confidence
+            })
+
+        return {
+            "predictions": predictions
+        }
+
+    except Exception as e:
+
+        print("ERROR:", e)
+
+        return {
+            "error": str(e)
+        }
 
 # =========================
 # PRESCRIPTION OCR API

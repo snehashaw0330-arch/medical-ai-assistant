@@ -1,27 +1,73 @@
+from fastapi import APIRouter
+from pydantic import BaseModel
 import pandas as pd
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.preprocessing import LabelEncoder
 import joblib
 
-# Load dataset
+router = APIRouter()
+
+# Load model + encoder
+model = joblib.load(
+    "disease-prediction/models/disease_model.pkl"
+)
+
+encoder = joblib.load(
+    "disease-prediction/models/label_encoder.pkl"
+)
+
+# Load dataset columns
 df = pd.read_csv(
     "disease-prediction/datasets/Training.csv"
 )
 
-# Features + target
-X = df.drop("prognosis", axis=1)
-y = df["prognosis"]
+symptom_columns = df.drop(
+    "prognosis",
+    axis=1
+).columns
 
-# Encode disease labels
-encoder = LabelEncoder()
-y_encoded = encoder.fit_transform(y)
 
-# Train model
-model = RandomForestClassifier()
-model.fit(X, y_encoded)
+# Request body
+class SymptomsRequest(BaseModel):
+    symptoms: list[str]
 
-# Save model
-joblib.dump(model, "disease-prediction/models/disease_model.pkl")
-joblib.dump(encoder, "disease-prediction/models/label_encoder.pkl")
 
-print("Disease model saved successfully")
+@router.post("/predict-disease")
+def predict_disease(data: SymptomsRequest):
+
+    try:
+
+        # Create empty symptom dictionary
+        input_data = {}
+
+        for symptom in symptom_columns:
+            input_data[symptom] = 0
+
+        # Set entered symptoms = 1
+        for symptom in data.symptoms:
+
+            symptom = symptom.strip().lower()
+
+            if symptom in input_data:
+                input_data[symptom] = 1
+
+        # Convert to dataframe
+        input_df = pd.DataFrame([input_data])
+
+        # Predict
+        prediction = model.predict(input_df)[0]
+
+        # Decode label
+        disease = encoder.inverse_transform(
+            [prediction]
+        )[0]
+
+        return {
+            "predicted_disease": disease
+        }
+
+    except Exception as e:
+
+        print(e)
+
+        return {
+            "error": str(e)
+        }
