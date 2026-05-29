@@ -10,5 +10,6 @@ build/
 
 processed-images/
 prescription-ocr/raw-images/
+prescription-ocr/uploads/
 
 *.zip

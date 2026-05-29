@@ -1,7 +1,25 @@
-import Home from "./pages/Home"
+import { Routes, Route } from 'react-router-dom'
+import AppLayout from './layout/AppLayout'
+import Dashboard from './pages/Dashboard'
+import DiseasePrediction from './pages/DiseasePrediction'
+import PrescriptionOCR from './pages/PrescriptionOCR'
+import MedicineSearch from './pages/MedicineSearch'
+import Chat from './pages/Chat'
+import Profile from './pages/Profile'
+import NotFound from './pages/NotFound'
 
-function App() {
-  return <Home />
+export default function App() {
+  return (
+    <Routes>
+      <Route element={<AppLayout />}>
+        <Route index element={<Dashboard />} />
+        <Route path="predict" element={<DiseasePrediction />} />
+        <Route path="ocr" element={<PrescriptionOCR />} />
+        <Route path="medicine" element={<MedicineSearch />} />
+        <Route path="chat" element={<Chat />} />
+        <Route path="profile" element={<Profile />} />
+        <Route path="*" element={<NotFound />} />
+      </Route>
+    </Routes>
+  )
 }
-
-export default App
