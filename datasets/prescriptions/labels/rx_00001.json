@@ -1,0 +1,23 @@
+{
+  "image": "rx_00001.png",
+  "image_path": "prescription-ocr/datasets/synthetic/images/rx_00001.png",
+  "source": "synthetic",
+  "split": "printed",
+  "certain": true,
+  "raw_text": "Omeprazole 20mg  1-0-1 x 5 days",
+  "patient": {
+    "age": null,
+    "weight_kg": null,
+    "sex": null
+  },
+  "medicines": [
+    {
+      "name": "Omeprazole",
+      "strength": "20mg",
+      "form": null,
+      "frequency": "1-0-1",
+      "duration": "5 day",
+      "certain": true
+    }
+  ]
+}

@@ -10,10 +10,13 @@ TrOCR / Tesseract) which scores candidates and picks the best.
 
 from __future__ import annotations
 
+import logging
+
 from backend.config import settings
 from backend.ocr import field_extraction as fe
 from backend.ocr import parser as rx_parser
 from backend.ocr.engines.ensemble import run_ensemble
+from backend.ocr.line_filter import is_medicine_line
 from backend.ocr.medicine_intelligence import get_index
 from backend.ocr.preprocess import prepare_for_deep_model
 from backend.ocr.providers.base import OCRSegment, RawOCRResult
@@ -27,8 +30,7 @@ from backend.ocr.schemas import (
 )
 
 
-def _looks_like_noise(text: str) -> bool:
-    return sum(c.isalpha() for c in text) < 3
+logger = logging.getLogger("ocr.pipeline")
 
 
 def _row_confidence(match_score: float, seg_conf: float | None) -> float:
@@ -38,11 +40,23 @@ def _row_confidence(match_score: float, seg_conf: float | None) -> float:
     return round(0.7 * dict_conf + 0.3 * seg_conf, 3)
 
 
-def _process_segment(seg: OCRSegment) -> ExtractedMedicine | None:
+def _process_segment(seg: OCRSegment) -> tuple[ExtractedMedicine | None, str]:
+    """Turn one OCR line into a medicine row.
+
+    Returns ``(row, skip_reason)``. When the line is not a prescribed item the
+    row is ``None`` and ``skip_reason`` says why, so the caller can tell the
+    user how many lines were excluded instead of silently shrinking the list.
+    """
     index = get_index()
     query = (seg.medicine_hint or seg.text).strip()
-    if _looks_like_noise(query):
-        return None
+
+    # Gate 1 — is this a medicine line at all? Letterhead, form labels, clock
+    # times and lines the engine barely read are dropped outright: they are not
+    # prescribed items, so there is nothing for a clinician to review.
+    ok, reason = is_medicine_line(query, seg.confidence)
+    if not ok:
+        logger.debug("Skipping non-medicine line %r (%s)", query[:60], reason)
+        return None, reason
 
     matches = index.search(query, limit=3)
     candidates = [MedicineCandidate(name=m.name, score=m.score) for m in matches]
@@ -57,7 +71,15 @@ def _process_segment(seg: OCRSegment) -> ExtractedMedicine | None:
 
     match_score = best.score if best else 0.0
     confidence = _row_confidence(match_score, seg.confidence)
-    needs_review = match_score < settings.MEDICINE_MATCH_THRESHOLD
+
+    # Gate 2 — is the match trustworthy? The ranking score alone is not enough:
+    # WRatio rewards substring hits, so noise routinely clears the threshold.
+    # A match must also agree at whole-word level (see confirm_score). Failing
+    # this does NOT discard the row — the line still looks like a medicine, so
+    # it is surfaced with its candidates and flagged for manual review rather
+    # than presented as a confidently identified drug.
+    confirmed = bool(best) and best.confirm >= settings.MEDICINE_CONFIRM_THRESHOLD
+    needs_review = match_score < settings.MEDICINE_MATCH_THRESHOLD or not confirmed
 
     details = None
     name = None
@@ -76,7 +98,7 @@ def _process_segment(seg: OCRSegment) -> ExtractedMedicine | None:
         confidence=confidence,
         needs_review=needs_review,
         details=details,
-    )
+    ), ""
 
 
 def _recognize(image_path: str, provider_name: str | None):
@@ -143,10 +165,16 @@ def run_pipeline(
 
     # 3 + 4. Medicine intelligence + field extraction per line.
     medicines: list[ExtractedMedicine] = []
+    unreadable = 0          # lines the OCR engine could not read well enough
+    non_medicine = 0        # letterhead / form / contact lines
     for seg in raw.segments:
-        item = _process_segment(seg)
+        item, skip_reason = _process_segment(seg)
         if item is not None:
             medicines.append(item)
+        elif skip_reason.startswith("OCR confidence"):
+            unreadable += 1
+        else:
+            non_medicine += 1
 
     deduped: dict[str, ExtractedMedicine] = {}
     passthrough: list[ExtractedMedicine] = []
@@ -175,6 +203,19 @@ def run_pipeline(
     review_count = sum(1 for m in final if m.needs_review)
     if review_count:
         warnings.append(f"{review_count} item(s) need manual verification.")
+    # Be explicit about what was left out. Silently shrinking the list would
+    # hide that the photo was partly unreadable, which is exactly when a
+    # clinician most needs to go back to the paper prescription.
+    if unreadable:
+        warnings.append(
+            f"{unreadable} line(s) were too unclear to read and were excluded — "
+            "check the prescription for items missing from this list."
+        )
+    # Lines dropped as letterhead, dosage fragments or form labels are expected
+    # on every prescription and are only logged, not surfaced: reporting them
+    # would bury the warning above, which is the one that matters.
+    if non_medicine:
+        logger.debug("Skipped %d non-medicine line(s)", non_medicine)
 
     return PrescriptionResult(
         provider=raw.provider,

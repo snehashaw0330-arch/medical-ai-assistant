@@ -134,7 +134,8 @@ def build_metrics(results: list[DatasetImageResult]) -> DatasetEvaluationMetrics
         if processed else 0.0
     )
     with_meds = [r for r in processed if r.medicine_count > 0]
-    extraction_accuracy = (
+    # Coverage, not accuracy — see DatasetEvaluationMetrics.medicine_detection_rate.
+    detection_rate = (
         round(len(with_meds) / len(processed), 4) if processed else 0.0
     )
     total_meds = sum(r.medicine_count for r in processed)
@@ -147,7 +148,7 @@ def build_metrics(results: list[DatasetImageResult]) -> DatasetEvaluationMetrics
         processed_images=len(processed),
         failed_images=failed,
         average_confidence=avg_conf,
-        medicine_extraction_accuracy=extraction_accuracy,
+        medicine_detection_rate=detection_rate,
         total_medicines_extracted=total_meds,
         average_processing_time=avg_time,
     )

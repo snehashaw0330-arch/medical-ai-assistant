@@ -47,8 +47,20 @@ async def aretrieve(
     top_k: int | None = None,
     min_similarity: float | None = None,
 ) -> list[RetrievedChunk]:
-    """Retrieve the most relevant medical-knowledge passages for ``query``."""
+    """Retrieve the most relevant medical-knowledge passages for ``query``.
+
+    Returns ``[]`` when the knowledge base is unavailable (RAG dependencies not
+    installed, or no index built yet) rather than raising. Every consumer
+    downstream — reranker, citation builder, response builder — already handles
+    an empty evidence list and produces a "no evidence found" answer, so this
+    degrades the way ``backend.rag.rag_service`` does instead of returning a 500.
+    """
     if not query.strip():
+        return []
+    if not available():
+        logger.warning(
+            "Knowledge base unavailable — returning no evidence for %r", query[:80]
+        )
         return []
     hits = await asyncio.to_thread(
         get_retriever().retrieve, query, top_k=top_k, min_similarity=min_similarity

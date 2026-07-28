@@ -213,7 +213,7 @@ export default function DatasetEvaluation() {
           <MetricCard icon={CheckCircle2} label="Processed" value={metrics.processed_images} />
           <MetricCard icon={XCircle} label="Failed" value={metrics.failed_images} />
           <MetricCard icon={Gauge} label="Avg. OCR confidence" value={`${pct(metrics.average_confidence)}%`} />
-          <MetricCard icon={Target} label="Medicine extraction" value={`${pct(metrics.medicine_extraction_accuracy)}%`} />
+          <MetricCard icon={Target} label="Images with medicines" value={`${pct(metrics.medicine_detection_rate)}%`} />
           <MetricCard icon={Timer} label="Avg. time / image" value={`${metrics.average_processing_time}s`} />
         </section>
       )}

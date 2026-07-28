@@ -8,6 +8,11 @@ const VARIANTS = {
   ghost: 'text-foreground hover:bg-surface-2',
   danger: 'bg-danger text-white hover:opacity-90',
   outline: 'border border-border text-foreground hover:bg-surface-2',
+  // For use ON a primary/gradient surface (e.g. the dashboard hero), where the
+  // button must invert instead of blending into the background. Declared as a
+  // variant rather than passed via className: `cn` is plain clsx, so a
+  // className colour would only beat the variant's by stylesheet order.
+  inverse: 'bg-white text-primary hover:bg-white/90 shadow-sm shadow-black/10',
 }
 
 const SIZES = {

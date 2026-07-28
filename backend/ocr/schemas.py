@@ -140,9 +140,13 @@ class DatasetEvaluationMetrics(BaseModel):
     failed_images: int = 0
     average_confidence: float = 0.0      # 0..1, over processed images
     # Fraction of processed images from which >=1 medicine was confidently
-    # extracted. (This dataset has no transcription ground truth, so accuracy
-    # is reported as the confident-extraction rate — documented, not inflated.)
-    medicine_extraction_accuracy: float = 0.0   # 0..1
+    # extracted. This is a COVERAGE rate, not accuracy: it never compares against
+    # ground truth, so it rises when the pipeline guesses more. It read ~100%
+    # while the pipeline was fabricating 31 medicines from a 5-medicine
+    # prescription. Named accordingly so it cannot be misread again — for real
+    # accuracy (precision/recall/F1/CER) run ``python -m backend.ocr.benchmark``
+    # against the labelled set in datasets/prescriptions/labels/.
+    medicine_detection_rate: float = 0.0   # 0..1
     total_medicines_extracted: int = 0
     average_processing_time: float = 0.0        # seconds per image
 

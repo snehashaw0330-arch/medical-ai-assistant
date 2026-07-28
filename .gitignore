@@ -50,4 +50,13 @@ backend/ai_governance/*.db
 # Evidence-Based Medical Response Engine history store — local SQLite DB
 backend/evidence_engine/*.db
 
+# Remaining per-module local SQLite stores. These were tracked by accident, so
+# every test run dirtied the diff with binary churn.
+backend/clinical_reasoning/*.db
+backend/document_intelligence/*.db
+backend/document_intelligence/images/
+backend/evidence_verification/*.db
+backend/simulation/*.db
+backend/patient_context/*.db
+
 *.zip

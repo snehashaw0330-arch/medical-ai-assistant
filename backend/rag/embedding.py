@@ -33,7 +33,20 @@ class Embedder:
 
     # -- lifecycle ---------------------------------------------------------
     def _load(self):
-        if self._model is None and not self._failed:
+        """Return the loaded model, or raise if it cannot be loaded.
+
+        Never returns ``None``. A previous implementation returned ``None`` once
+        ``_failed`` was set, so the *first* call raised but every call after it
+        handed back ``None`` — and callers like :meth:`embed_texts` then died on
+        ``'NoneType' object has no attribute 'encode'`` far from the real cause.
+        Failing the same way every time keeps the error legible.
+        """
+        if self._failed:
+            raise RuntimeError(
+                f"Embedding model '{self.model_name}' is unavailable "
+                "(install sentence-transformers, or check the model download)."
+            )
+        if self._model is None:
             try:
                 from sentence_transformers import SentenceTransformer  # type: ignore
 

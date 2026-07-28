@@ -140,7 +140,7 @@ export default function Dashboard() {
         </p>
         <div className="mt-6 flex flex-wrap gap-3">
           <Link to="/predict">
-            <Button className="bg-white text-primary hover:bg-white/90">
+            <Button variant="inverse">
               Start Diagnosis <ArrowRight size={16} />
             </Button>
           </Link>

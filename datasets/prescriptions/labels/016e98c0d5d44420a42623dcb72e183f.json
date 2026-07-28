@@ -1,0 +1,56 @@
+{
+  "image": "016e98c0d5d44420a42623dcb72e183f.jpg",
+  "image_path": "backend/history/images/016e98c0d5d44420a42623dcb72e183f.jpg",
+  "source": "real-handwritten",
+  "split": "handwritten",
+  "certain": true,
+  "_note": "Preethi Child Clinic / Dr D. Ravi Shankar. Five numbered items are clearly legible as items; two drug NAMES are not fully legible and are flagged certain:false. raw_text omitted deliberately - a guessed full-page transcription would corrupt CER/WER. Needs verification by a second transcriber.",
+  "patient": {
+    "age": "6 months",
+    "weight_kg": 6.6,
+    "sex": "F"
+  },
+  "complaints": ["cold", "cough 2 days"],
+  "medicines": [
+    {
+      "name": "T-Minic",
+      "strength": null,
+      "form": "drops",
+      "frequency": "0.3ml-0.3ml-0.3ml",
+      "duration": null,
+      "certain": true
+    },
+    {
+      "name": "Arthakind",
+      "strength": null,
+      "form": "drops",
+      "frequency": "0.4ml-0.4ml-0.4ml",
+      "duration": null,
+      "certain": false
+    },
+    {
+      "name": "Advent",
+      "strength": null,
+      "form": "drops",
+      "frequency": "0.5ml-0.5ml-0.5ml",
+      "duration": "3 days",
+      "certain": true
+    },
+    {
+      "name": "Nanoclear",
+      "strength": null,
+      "form": "nasal drops",
+      "frequency": null,
+      "duration": null,
+      "certain": false
+    },
+    {
+      "name": "HH-zole",
+      "strength": null,
+      "form": "cream",
+      "frequency": "twice daily",
+      "duration": null,
+      "certain": true
+    }
+  ]
+}

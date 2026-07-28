@@ -1,0 +1,23 @@
+{
+  "image": "rx_00002.png",
+  "image_path": "prescription-ocr/datasets/synthetic/images/rx_00002.png",
+  "source": "synthetic",
+  "split": "printed",
+  "certain": true,
+  "raw_text": "Paracetamol 650mg  TDS after food",
+  "patient": {
+    "age": null,
+    "weight_kg": null,
+    "sex": null
+  },
+  "medicines": [
+    {
+      "name": "Paracetamol",
+      "strength": "650mg",
+      "form": null,
+      "frequency": "TDS after food",
+      "duration": null,
+      "certain": true
+    }
+  ]
+}

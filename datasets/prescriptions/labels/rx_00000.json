@@ -1,0 +1,23 @@
+{
+  "image": "rx_00000.png",
+  "image_path": "prescription-ocr/datasets/synthetic/images/rx_00000.png",
+  "source": "synthetic",
+  "split": "printed",
+  "certain": true,
+  "raw_text": "Cetirizine 10mg  0-0-1 x 1 week",
+  "patient": {
+    "age": null,
+    "weight_kg": null,
+    "sex": null
+  },
+  "medicines": [
+    {
+      "name": "Cetirizine",
+      "strength": "10mg",
+      "form": null,
+      "frequency": "0-0-1",
+      "duration": "1 week",
+      "certain": true
+    }
+  ]
+}
