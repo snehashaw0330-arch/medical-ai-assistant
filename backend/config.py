@@ -475,6 +475,24 @@ class Settings:
     MEDICINE_MATCH_THRESHOLD: float = float(
         os.getenv("MEDICINE_MATCH_THRESHOLD", "72")
     )
+    # Whole-word agreement (token_set_ratio, 0-100) a match must ALSO reach
+    # before its name + drug details are presented as confident. The ranking
+    # scorer (WRatio) rewards substring hits, which against a 248k-name index
+    # makes almost any OCR fragment look like a drug; this second opinion is
+    # what separates "Paracetmol 500" -> paracetamol (95.2) from "date" ->
+    # "dat cream" (85.7). Below it the row is kept but marked needs_review with
+    # its candidates, never resolved to a named medicine.
+    MEDICINE_CONFIRM_THRESHOLD: float = float(
+        os.getenv("MEDICINE_CONFIRM_THRESHOLD", "88")
+    )
+    # An OCR line the engine itself read with less confidence than this (0-1)
+    # cannot support a medicine claim. Real medicine lines measure 0.65-0.93;
+    # letterhead/handwriting noise measures 0.002-0.27.
+    OCR_MIN_SEGMENT_CONFIDENCE: float = float(
+        os.getenv("OCR_MIN_SEGMENT_CONFIDENCE", "0.35")
+    )
+    # Minimum alphabetic characters for a line to be considered a medicine name.
+    OCR_MIN_MEDICINE_LETTERS: int = int(os.getenv("OCR_MIN_MEDICINE_LETTERS", "4"))
     # Below this overall confidence (0-1) we surface a "verify manually" warning.
     MIN_CONFIDENCE: float = float(os.getenv("OCR_MIN_CONFIDENCE", "0.6"))
     # Enable engine-aware preprocessing (deskew/denoise/contrast/upscale).
