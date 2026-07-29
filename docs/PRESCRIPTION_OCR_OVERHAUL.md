@@ -142,7 +142,37 @@ and now a measured one rather than an opinion. **The system is currently safe bu
 useful on handwriting**; that is what Phase 1 exists to change. Note CER 0.40 on clean printed
 images is itself a strong argument that the engines — not just the matcher — are the problem.
 
-**Remaining to exit Phase 0:** scale labels from 4 → ≥100 (Desktop; see the labels README).
+**Remaining to exit Phase 0:** scale labels from 9 → ≥100 (see the labels README).
+
+#### Update — 9 labels, and what the bigger set revealed (2026-07-29)
+
+Labels grew 4 → 9 by transcribing dataset images, including **a deliberate negative
+case** (`10.jpg` is a medical certificate with no drugs at all). The larger set immediately
+falsified the 4-label reading of "precision 1.000": with 9 labels it was **0.333**, and the
+negative case alone produced 3 invented medicines. Small label sets flatter the pipeline.
+
+The false positives showed English prose matching drug SKUs — `INSTITUTES OF
+GASTROENTEROLOGY` → "gastro 20 tablet", `he further needs...` → "need syrup", `Dr B. Who`
+→ "dr 4 tablet". Three fixes followed, each measured:
+
+1. **Prose + title detection** (`line_filter.py`) — function words are the sharpest signal
+   for narrative text; drug lines contain essentially none. Separated 26/28 with **zero**
+   drug lines wrongly rejected.
+2. **`confirm_score` was broken for single-token names** — `token_set_ratio` returns 100
+   whenever the candidate appears as a token in the query, so `"Wu Om"` scored 100 against
+   `"om suspension"`. Single-token products now compare whole-string.
+3. **Strength tokens were dragging real matches down** — `normalize` only strips digits at
+   word boundaries, so a fused `"650mg"` survived and cost `Paracetamol 650mg` → 78.6.
+   Now stripped symmetrically from both sides. Threshold raised 88 → 90, which sits in a
+   measured gap (weakest genuine 94.7, strongest false 88.9).
+
+| | 4 labels | 9 labels, before | 9 labels, after |
+|---|---|---|---|
+| precision | 1.000 | 0.333 | **1.000** |
+| false positives / Rx | 0.0 | 0.44 | **0.00** |
+| recall | 0.250 | 0.143 | 0.143 |
+
+Recall is unchanged and low — that is the recognition ceiling, and only Phase 1 moves it.
 
 ### Phase 1 — Replace recognition with a vision-language model
 

@@ -1,0 +1,23 @@
+{
+  "image": "20.jpg",
+  "image_path": "datasets/prescriptions/illegible_dataset/20.jpg",
+  "source": "illegible_dataset",
+  "split": "handwritten",
+  "certain": true,
+  "_note": "Midtown Park Pharmacy card, Fairview TX. Sig reads '1 qid for 8 days then 1 tid'.",
+  "patient": {
+    "age": null,
+    "weight_kg": null,
+    "sex": "F"
+  },
+  "medicines": [
+    {
+      "name": "Stilbestrol",
+      "strength": "25mg",
+      "form": null,
+      "frequency": "qid then tid",
+      "duration": "8 days",
+      "certain": true
+    }
+  ]
+}

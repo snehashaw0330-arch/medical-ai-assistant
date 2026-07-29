@@ -239,22 +239,25 @@ export default function PrescriptionOCR() {
   const cameraRef = useRef(null)
   const abortRef = useRef(null)
 
-  useEffect(() => {
-    if (result) {
-      setMeds(result.medicines || [])
-      setFields(result.fields || {})
-      setEditing(false)
-      // The backend auto-runs interaction analysis when >=2 medicines are found
-      // and ships it inline on the OCR result.
-      setInteractions(result.drug_interactions || null)
-      // The backend also runs clinical decision support (OCR -> matching ->
-      // interactions -> RAG -> CDSS) and ships the report inline.
-      setClinical(result.clinical_report || null)
-      // The backend also validates the extracted prescription (duplicates,
-      // missing dosing info, unsafe abbreviations, ...) and ships it inline.
-      setValidation(result.validation_report || null)
-    }
-  }, [result])
+  // Store a fresh analysis and seed the editable copies from it. Done here at the
+  // point the data arrives rather than in an effect watching `result`: syncing
+  // state from state costs an extra render pass on every analysis, and the
+  // effect could only ever fire from this one call site anyway.
+  const applyResult = (data) => {
+    setResult(data)
+    setMeds(data.medicines || [])
+    setFields(data.fields || {})
+    setEditing(false)
+    // The backend auto-runs interaction analysis when >=2 medicines are found
+    // and ships it inline on the OCR result.
+    setInteractions(data.drug_interactions || null)
+    // The backend also runs clinical decision support (OCR -> matching ->
+    // interactions -> RAG -> CDSS) and ships the report inline.
+    setClinical(data.clinical_report || null)
+    // The backend also validates the extracted prescription (duplicates,
+    // missing dosing info, unsafe abbreviations, ...) and ships it inline.
+    setValidation(data.validation_report || null)
+  }
 
   // Re-run prescription validation against the (possibly edited) medicine list.
   const revalidate = async () => {
@@ -296,11 +299,18 @@ export default function PrescriptionOCR() {
     }
   }
 
-  // Elapsed-time counter so the user sees progress during slow OCR.
+  // Elapsed-time counter so the user sees progress during slow OCR. Derived from
+  // a start timestamp rather than incrementing a counter: immune to timer drift
+  // and background-tab throttling, so the number matches the real wait. The
+  // reset lives in the handler that starts the run, not here — resetting state
+  // from inside an effect triggers an extra cascading render.
   useEffect(() => {
     if (!processing) return
-    setElapsed(0)
-    const id = setInterval(() => setElapsed((s) => s + 1), 1000)
+    const startedAt = Date.now()
+    const id = setInterval(
+      () => setElapsed(Math.round((Date.now() - startedAt) / 1000)),
+      1000,
+    )
     return () => clearInterval(id)
   }, [processing])
 
@@ -323,13 +333,13 @@ export default function PrescriptionOCR() {
     setQualityGate(false)
     const controller = new AbortController()
     abortRef.current = controller
-    setProcessing(true); setError(null); setResult(null); setProgress(0)
+    setProcessing(true); setError(null); setResult(null); setProgress(0); setElapsed(0)
     try {
       const data = await extractPrescription(file, {
         onProgress: setProgress,
         signal: controller.signal,
       })
-      setResult(data)
+      applyResult(data)
       saveReport({ fileName: file.name, provider: data.provider, medicineCount: data.medicines?.length || 0, overall: data.overall_confidence })
     } catch (err) {
       // A user-initiated cancel is NOT an error — stay silent and reset.

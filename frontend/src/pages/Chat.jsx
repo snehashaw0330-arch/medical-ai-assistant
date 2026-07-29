@@ -10,7 +10,6 @@ import {
   Stethoscope,
   ClipboardList,
   ShieldAlert,
-  Activity,
   Sparkles,
   Quote,
   Paperclip,
@@ -499,7 +498,7 @@ function Message({ msg, streaming, onStreamDone, showChips, onAnswer }) {
           )}
         >
           {streaming ? (
-            <TypingText text={msg.content} onDone={onStreamDone} />
+            <TypingText key={msg.content} text={msg.content} onDone={onStreamDone} />
           ) : (
             <span dangerouslySetInnerHTML={{ __html: renderMd(msg.content) }} />
           )}
@@ -746,12 +745,18 @@ function TypingBubble() {
 }
 
 // ---------- streaming text (Requirement #7) ----------
+// The caller keys this on the message text, so a new message remounts the
+// component and `n` starts at 0 — no reset-in-effect needed.
 function TypingText({ text, onDone, speed = 12 }) {
   const [n, setN] = useState(0)
   const doneRef = useRef(onDone)
-  doneRef.current = onDone
+  // Track the latest callback without re-running the interval. Assigning to a
+  // ref during render mutates state outside the commit phase, which breaks
+  // concurrent rendering; an effect is the sanctioned place for it.
   useEffect(() => {
-    setN(0)
+    doneRef.current = onDone
+  })
+  useEffect(() => {
     let i = 0
     const id = setInterval(() => {
       i += 1

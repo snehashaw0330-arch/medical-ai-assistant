@@ -134,7 +134,13 @@ async def _attach_recommendations(result: PrescriptionResult) -> None:
     if not settings.MEDICINE_REC_AUTO_ON_OCR:
         return
     try:
-        names = [m.name or m.raw_text for m in result.medicines if (m.name or m.raw_text)]
+        # Confirmed medicines only. Falling back to `raw_text` here meant an
+        # unresolved row — which is the pipeline saying "I could not read this" —
+        # was sent to the recommendation engine as if it were a drug name, so
+        # OCR noise came back carrying generics, substitutes and RAG evidence.
+        # An unconfirmed row is a question for the clinician, not an input to
+        # downstream clinical reasoning.
+        names = [m.name for m in result.medicines if m.name]
         if not names:
             return
         from backend.medicine_recommendation import recommend_from_ocr

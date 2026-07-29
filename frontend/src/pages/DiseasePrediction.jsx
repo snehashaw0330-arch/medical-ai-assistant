@@ -48,13 +48,14 @@ export default function DiseasePrediction() {
   const [selected, setSelected] = useState([])
   const [result, setResult] = useState(null)
   const [loading, setLoading] = useState(false)
-  const [history, setHistory] = useState([])
+  // Seeded lazily from localStorage: reading it in an effect only to setState
+  // costs an extra render and trips the cascading-render rule.
+  const [history, setHistory] = useState(getPredictions)
 
   useEffect(() => {
     getSymptoms()
       .then(setAllSymptoms)
       .catch(() => toast.error('Could not load symptom list. Is the API running?'))
-    setHistory(getPredictions())
   }, [])
 
   const predict = async (symptoms = selected) => {
@@ -96,9 +97,12 @@ export default function DiseasePrediction() {
   const lowConfidence = predictions.length > 0 && topConfidence < RELIABLE_MIN
 
   // Requirement #6 — curated follow-ups for ambiguous top condition.
+  // Keyed on the disease name rather than the `predictions` array: `?? []` mints
+  // a fresh array identity every render, which would invalidate the memo each time.
+  const topDisease = predictions.length ? predictions[0].disease : null
   const followups = useMemo(
-    () => (predictions.length ? getFollowups(predictions[0].disease, selected) : []),
-    [predictions, selected],
+    () => (topDisease ? getFollowups(topDisease, selected) : []),
+    [topDisease, selected],
   )
 
   return (

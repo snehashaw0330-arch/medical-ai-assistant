@@ -2,8 +2,10 @@ import { useId, useMemo, useRef, useState } from 'react'
 import { Plus, X, Search } from 'lucide-react'
 import { cn, titleCase } from '@/lib/utils'
 
+// Module-private: nothing outside this file imports it, and exporting a
+// non-component from a component file breaks Fast Refresh for the whole module.
 /** Normalize a free-text token: lowercase, spaces for separators, trimmed. */
-export function normalizeToken(s) {
+function normalizeToken(s) {
   return s.toLowerCase().replace(/[_-]+/g, ' ').replace(/\s+/g, ' ').trim()
 }
 

@@ -1,0 +1,25 @@
+{
+  "image": "1.jpg",
+  "image_path": "datasets/prescriptions/illegible_dataset/1.jpg",
+  "source": "illegible_dataset",
+  "split": "handwritten",
+  "certain": true,
+  "_note": "Clean template Rx (Dr B. Who, Kirkville). Body handwritten but legible.",
+  "raw_text": "Dr B. Who Farmstreet 12 Kirkville tel. 3876 R/ date 1 Nov 1994 Digoxin 0.125 mg tablets da no.7 S 1 dd 1 tablet B. Who Ms/Mr Patient 30 address: age: 70 years",
+  "patient": {
+    "age": "70 years",
+    "weight_kg": null,
+    "sex": null
+  },
+  "medicines": [
+    {
+      "name": "Digoxin",
+      "strength": "0.125mg",
+      "form": "tablet",
+      "frequency": "1 dd (once daily)",
+      "duration": null,
+      "quantity": "7",
+      "certain": true
+    }
+  ]
+}

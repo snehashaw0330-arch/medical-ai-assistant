@@ -1,0 +1,14 @@
+{
+  "image": "10.jpg",
+  "image_path": "datasets/prescriptions/illegible_dataset/10.jpg",
+  "source": "illegible_dataset",
+  "split": "handwritten",
+  "certain": true,
+  "_note": "NEGATIVE CASE \u2014 not a prescription. A medical certificate ('To whom so ever it may concern', Apollo Hospitals) with no drugs. Any medicine returned here is a pure false positive.",
+  "patient": {
+    "age": "62 years",
+    "weight_kg": null,
+    "sex": "M"
+  },
+  "medicines": []
+}

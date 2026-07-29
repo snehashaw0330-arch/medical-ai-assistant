@@ -1,0 +1,39 @@
+{
+  "image": "3.jpg",
+  "image_path": "datasets/prescriptions/illegible_dataset/3.jpg",
+  "source": "illegible_dataset",
+  "split": "handwritten",
+  "certain": true,
+  "_note": "Historical 1921 compounding Rx (Charles B. Hatton, Pharmacist, Urbana Ohio). Apothecary units.",
+  "patient": {
+    "age": null,
+    "weight_kg": null,
+    "sex": null
+  },
+  "medicines": [
+    {
+      "name": "Cocaine Hydrochlor",
+      "strength": "grs IX",
+      "form": null,
+      "frequency": "apply locally",
+      "duration": null,
+      "certain": true
+    },
+    {
+      "name": "Adrenalin Chlor",
+      "strength": "M iij",
+      "form": "solution",
+      "frequency": "apply locally",
+      "duration": null,
+      "certain": true
+    },
+    {
+      "name": "Saline Solution",
+      "strength": null,
+      "form": "solution",
+      "frequency": "apply locally",
+      "duration": null,
+      "certain": true
+    }
+  ]
+}

@@ -277,10 +277,18 @@ async def recommend_from_ocr(
     persist: bool = True,
     source_record_id: str | None = None,
 ) -> RecommendationReport:
-    """Build a recommendation report from an OCR result dict (Requirement 7)."""
+    """Build a recommendation report from an OCR result dict (Requirement 7).
+
+    Only *confirmed* medicines are used. A row the pipeline left unresolved
+    (``name`` is null, ``needs_review`` set) is the OCR reporting that it could
+    not read the line; recommending generics and substitutes for that raw text
+    would dress unreadable handwriting up as a clinical suggestion.
+    """
     names: list[str] = []
     for m in ocr_result.get("medicines", []) or []:
-        name = (m.get("name") or m.get("raw_text") or "").strip()
+        if m.get("needs_review"):
+            continue
+        name = (m.get("name") or "").strip()
         if name:
             names.append(name)
     req = MedicineRecommendRequest(

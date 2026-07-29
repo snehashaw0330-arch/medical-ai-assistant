@@ -1,0 +1,55 @@
+{
+  "image": "2.jpg",
+  "image_path": "datasets/prescriptions/illegible_dataset/2.jpg",
+  "source": "illegible_dataset",
+  "split": "handwritten",
+  "certain": true,
+  "_note": "Dr R. Keshwani, Secunderabad. Dx: acute GE with dehydration. Numbers in () are quantities dispensed.",
+  "patient": {
+    "age": null,
+    "weight_kg": null,
+    "sex": null
+  },
+  "complaints": [
+    "acute gastroenteritis",
+    "dehydration"
+  ],
+  "medicines": [
+    {
+      "name": "Oflazest OZ",
+      "strength": null,
+      "form": "tablet",
+      "frequency": "1-0-1",
+      "duration": "3 days",
+      "quantity": "6",
+      "certain": true
+    },
+    {
+      "name": "Azenac MR",
+      "strength": null,
+      "form": "tablet",
+      "frequency": "1-0-1",
+      "duration": "3 days",
+      "quantity": "6",
+      "certain": true
+    },
+    {
+      "name": "Andial",
+      "strength": null,
+      "form": "tablet",
+      "frequency": "2 then 1 6-hourly",
+      "duration": "3 days",
+      "quantity": "5",
+      "certain": true
+    },
+    {
+      "name": "Zofer",
+      "strength": null,
+      "form": "tablet",
+      "frequency": "1-0-1",
+      "duration": "3 days",
+      "quantity": "6",
+      "certain": false
+    }
+  ]
+}

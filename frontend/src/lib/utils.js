@@ -1,8 +1,21 @@
 import clsx from 'clsx'
+import { twMerge } from 'tailwind-merge'
 
-/** Conditional className join. */
+/**
+ * Conditional className join, with conflicting Tailwind utilities resolved.
+ *
+ * clsx alone only concatenates, so a component's `className` prop and its
+ * variant classes both survive onto the element and the winner is decided by
+ * order in the generated stylesheet — not by the order they were written. That
+ * made overrides silently unreliable: `<Button className="bg-white text-primary">`
+ * rendered white-on-white, because `.text-primary-foreground` from the variant
+ * happens to be emitted 35 bytes later than `.text-primary`.
+ *
+ * twMerge drops the earlier of any two conflicting utilities, so the last one
+ * written — the caller's `className` — reliably wins.
+ */
 export function cn(...args) {
-  return clsx(...args)
+  return twMerge(clsx(...args))
 }
 
 /** Map a 0..100 confidence to a semantic color token. */

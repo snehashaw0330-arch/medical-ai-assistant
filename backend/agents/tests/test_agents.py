@@ -4,9 +4,12 @@ Fast and deterministic: the workflow test uses lightweight *fake* agents so the
 orchestration (event bus, shared memory, engine, run store, timing, error
 isolation) is exercised end-to-end without loading any ML/OCR/RAG dependency.
 
-Runnable two ways:
-    pytest backend/agents/tests/test_agents.py
-    python  backend/agents/tests/test_agents.py     (built-in runner, no pytest)
+Runnable two ways, from the repo root. ``PYTHONPATH=.`` is required: running a
+script by path puts *its* directory on ``sys.path``, not the repo root, so the
+``backend`` package would not be importable without it.
+
+    PYTHONPATH=. pytest backend/agents/tests/test_agents.py
+    PYTHONPATH=. python backend/agents/tests/test_agents.py   (built-in runner, no pytest)
 """
 
 from __future__ import annotations

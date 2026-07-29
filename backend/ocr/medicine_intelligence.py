@@ -53,6 +53,26 @@ def normalize(name: str) -> str:
     return re.sub(r"\s+", " ", s).strip()
 
 
+#: A strength token — "650mg", "0.125", "25 mg", or a bare unit. ``normalize``
+#: only strips digits delimited by word boundaries, so a fused "650mg" survives
+#: it intact; left in, that token drags an otherwise perfect match down.
+_STRENGTH_TOKEN_RE = re.compile(
+    r"^(?:\d+(?:\.\d+)?)?(?:mg|mgs|ml|mcg|gm|gms|g|iu|units?|cc|mm|%)?$"
+)
+
+
+def _identity_tokens(text: str) -> str:
+    """Normalised text reduced to the tokens that actually identify the drug.
+
+    Strength and unit tokens are dropped from *both* sides of a comparison, so
+    "Paracetamol 650mg" and "paracetamol tablet" reduce to the same string
+    instead of scoring 78.6 against each other.
+    """
+    return " ".join(
+        t for t in normalize(text).split() if not _STRENGTH_TOKEN_RE.match(t)
+    )
+
+
 @dataclass
 class MedicineMatch:
     name: str          # original display name from the dataset
@@ -75,8 +95,20 @@ def confirm_score(query: str, name: str) -> float:
     populations: genuine matches score 92-100 ("Paracetmol 500" -> "paracetamol
     tablet" = 95.2), while letterhead noise tops out at 85.7 ("date" ->
     "dat cream"). It is used to *confirm* what WRatio proposes, never to rank.
+
+    One exception. ``token_set_ratio`` returns 100 whenever the candidate appears
+    as a token inside the query, which for a single-word product name means a
+    stray fragment scores perfectly: the OCR line "Wu Om" scored 100 against
+    "om suspension" and was named. For a single-token product the comparison is
+    therefore made with whole-string ``ratio``, which scores that pair 57 and
+    still gives "Cetirizine" -> "cetrizine" 94.7.
     """
-    return float(fuzz.token_set_ratio(normalize(query), normalize(name)))
+    q, core = _identity_tokens(query), _identity_tokens(name)
+    if not q or not core:
+        return 0.0
+    if len(core.split()) == 1:
+        return float(fuzz.ratio(q, core))
+    return float(fuzz.token_set_ratio(q, core))
 
 
 class MedicineIndex:

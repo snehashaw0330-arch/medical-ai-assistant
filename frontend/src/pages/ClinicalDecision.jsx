@@ -69,16 +69,19 @@ export default function ClinicalDecision() {
   const [history, setHistory] = useState([])
   const reportRef = useRef(null)
 
+  // Declared before the effect that calls it: the effect only runs after render,
+  // so the old ordering happened to work, but referencing a `const` above its
+  // declaration is a temporal-dead-zone hazard the moment anything calls it earlier.
+  const refreshHistory = () =>
+    getClinicalHistory({ page_size: 6 })
+      .then((d) => setHistory(d.items || []))
+      .catch(() => setHistory([]))
+
   // Symptom autocomplete reuses the disease-prediction symptom vocabulary.
   useEffect(() => {
     getSymptoms().then(setSymptomOptions).catch(() => setSymptomOptions([]))
     refreshHistory()
   }, [])
-
-  const refreshHistory = () =>
-    getClinicalHistory({ page_size: 6 })
-      .then((d) => setHistory(d.items || []))
-      .catch(() => setHistory([]))
 
   const run = async () => {
     if (!medicines.length && !symptoms.length && !diagnosis.trim()) {

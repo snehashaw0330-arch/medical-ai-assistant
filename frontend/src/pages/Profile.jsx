@@ -21,7 +21,7 @@ import {
   getReports,
   clearHistory,
 } from '@/lib/storage'
-import { formatDate, titleCase } from '@/lib/utils'
+import { formatDate } from '@/lib/utils'
 
 const LEVEL_TONE = { high: 'success', moderate: 'warning', low: 'danger' }
 

@@ -98,7 +98,16 @@ function AgentGantt({ run }) {
   if (!run?.started_at || rows.length === 0) return null
 
   const startMs = new Date(run.started_at).getTime()
-  const endMs = run.finished_at ? new Date(run.finished_at).getTime() : Date.now()
+  // For an in-progress run the timeline ends at the last agent event we know
+  // about, not at wall-clock `Date.now()`: reading the clock during render makes
+  // it impure (every render yields a different chart). The parent polls the run,
+  // so this still advances as agents finish — and it stays truthful, showing
+  // only elapsed work rather than a bar that creeps while nothing happens.
+  const lastEventMs = rows.reduce((max, a) => {
+    const t = a.finished_at ? new Date(a.finished_at).getTime() : 0
+    return t > max ? t : max
+  }, startMs)
+  const endMs = run.finished_at ? new Date(run.finished_at).getTime() : lastEventMs
   const totalMs = Math.max(1, endMs - startMs)
 
   return (

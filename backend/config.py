@@ -482,8 +482,11 @@ class Settings:
     # what separates "Paracetmol 500" -> paracetamol (95.2) from "date" ->
     # "dat cream" (85.7). Below it the row is kept but marked needs_review with
     # its candidates, never resolved to a named medicine.
+    # 90 sits in a measured gap: the weakest genuine match observed is 94.7
+    # ("Cetirizine" -> "cetrizine tablet") and the strongest false one is 88.9
+    # (the OCR fragment "needb" -> "need syrup").
     MEDICINE_CONFIRM_THRESHOLD: float = float(
-        os.getenv("MEDICINE_CONFIRM_THRESHOLD", "88")
+        os.getenv("MEDICINE_CONFIRM_THRESHOLD", "90")
     )
     # An OCR line the engine itself read with less confidence than this (0-1)
     # cannot support a medicine claim. Real medicine lines measure 0.65-0.93;

@@ -259,8 +259,9 @@ def test_aggregate_reproduces_the_old_metrics_blind_spot():
     """The scenario the previous metric read as ~100%.
 
     Two prescriptions, one real drug each, six invented drugs between them.
-    `medicine_extraction_accuracy` (images yielding >=1 medicine / images) = 1.0.
-    Precision here is 0.25 and FP/Rx is 3.0 — the bug is visible immediately.
+    `medicine_detection_rate` (images yielding >=1 medicine / images) reads 1.0
+    on this input. Precision here is 0.25 and FP/Rx is 3.0 — the bug is visible
+    immediately.
     """
     label = make_label([GoldMedicine(name="Advent")])
     noisy = FakeResult([

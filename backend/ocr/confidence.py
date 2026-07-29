@@ -11,18 +11,35 @@ We combine three signals:
 
 from __future__ import annotations
 
+from backend.config import settings
 from backend.ocr.engines.base import EngineResult
+from backend.ocr.line_filter import is_medicine_line
 
 
-def dictionary_agreement(result: EngineResult, index, threshold: float = 78.0) -> float:
-    """Fraction of non-trivial lines whose best medicine match >= threshold."""
-    candidates = [l.text for l in result.lines if sum(c.isalpha() for c in l.text) >= 3]
+def dictionary_agreement(result: EngineResult, index) -> float:
+    """Fraction of plausible medicine lines that resolve to a *confirmable* drug.
+
+    This counts only what the extraction pipeline would actually accept — the
+    same line gate and the same whole-word confirmation. That alignment matters
+    more than it looks. The previous version counted any line whose raw
+    ``WRatio`` cleared 78, but WRatio folds in ``partial_ratio`` and returns ~90
+    for almost any fragment against a 248k-name index. Since this is the
+    heaviest term in :func:`engine_score`, the ensemble was effectively ranking
+    engines by *how much drug-shaped noise they produced* — rewarding the
+    hallucinating engine over the accurate one, with no ground truth anywhere in
+    the loop to notice.
+    """
+    candidates = [l for l in result.lines if is_medicine_line(l.text, l.confidence)[0]]
     if not candidates:
         return 0.0
     hits = 0
-    for text in candidates:
-        matches = index.search(text, limit=1)
-        if matches and matches[0].score >= threshold:
+    for line in candidates:
+        matches = index.search(line.text, limit=1)
+        if (
+            matches
+            and matches[0].score >= settings.MEDICINE_MATCH_THRESHOLD
+            and matches[0].confirm >= settings.MEDICINE_CONFIRM_THRESHOLD
+        ):
             hits += 1
     return hits / len(candidates)
 
