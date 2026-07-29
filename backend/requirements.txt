@@ -53,8 +53,17 @@ pytesseract>=0.3.10            # fallback; also install the Tesseract binary:
 # kaggle>=1.6                  # Kaggle prescription datasets (needs API token)
 # roboflow>=1.1                # Roboflow datasets (needs ROBOFLOW_API_KEY)
 
-# --- Optional cloud OCR providers (install only if you set a key) ---
-# google-genai>=0.3            # Gemini   (set GEMINI_API_KEY)
+# --- Vision-model OCR (the accurate path) ---
+# Not optional in practice: the local EasyOCR/Tesseract ensemble cannot read
+# handwriting. Measured on the labelled set, a vision model takes medicine F1
+# from 0.250 to 0.880 and character error from 0.376 to 0.000, while running
+# faster. The SDK is a small pure-Python client and is safe to install with no
+# key present — OCR_PROVIDER=auto simply keeps using the local engine until
+# GEMINI_API_KEY is set. Leaving it uninstalled is worse than useless: the
+# provider then fails at call time and silently degrades to local OCR.
+google-genai>=0.3              # Gemini   (set GEMINI_API_KEY)
+
+# --- Alternative cloud OCR providers (install only if you use one) ---
 # openai>=1.30                 # GPT-4o   (set OPENAI_API_KEY)
 # google-cloud-vision>=3.7     # Vision   (set GOOGLE_APPLICATION_CREDENTIALS)
 

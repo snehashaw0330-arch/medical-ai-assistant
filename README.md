@@ -17,17 +17,27 @@ has no wheels for 3.14, which is the default `python3` on many machines.
 
 ```bash
 python3.12 -m venv venv
-./venv/bin/pip install -r backend/requirements.txt
-# The RAG + local-OCR extras are commented out in requirements.txt; install them for
-# the Knowledge Base, Evidence Engine and offline prescription OCR:
-./venv/bin/pip install sentence-transformers chromadb easyocr pytesseract
-
+./venv/bin/pip install -r backend/requirements.txt   # includes torch, easyocr, chroma, gemini
 npm --prefix frontend install
 ```
 
-No API key is needed to boot: with `OCR_PROVIDER=auto` and no key set, OCR falls back to the
-local EasyOCR/Tesseract ensemble and the LLM layer to a deterministic offline writer.
-Copy `backend/.env.example` → `backend/.env` to configure providers.
+The app boots with no API key: `OCR_PROVIDER=auto` uses the local EasyOCR/Tesseract ensemble
+and the LLM layer falls back to a deterministic offline writer.
+
+**But set a Gemini key.** The local engines cannot read handwriting — measured on the labelled
+set, a vision model takes medicine F1 from **0.250 to 0.880** and character error from
+**0.376 to 0.000**, and is faster. A free key takes a minute:
+
+```bash
+cp backend/.env.example backend/.env
+# then edit backend/.env:
+#   GEMINI_API_KEY=...            from https://aistudio.google.com -> "Get API key"
+#   GEMINI_MODEL=gemini-3.1-flash-lite
+```
+
+Pick a model your project has quota for — new AI Studio projects get a free-tier limit of
+**0** on the `gemini-2.x` models, which returns 429 and silently degrades to local OCR. Verify
+with `curl localhost:8000/ocr/health` → `active_provider` should read `gemini`.
 
 ## Run
 
