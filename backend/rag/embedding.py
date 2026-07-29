@@ -16,6 +16,7 @@ possible).
 from __future__ import annotations
 
 import asyncio
+import threading
 from functools import lru_cache
 
 from backend.rag.config import config, get_logger
@@ -30,6 +31,18 @@ class Embedder:
         self.model_name = model_name or config.EMBEDDING_MODEL
         self._model = None
         self._failed = False
+        # Guards BOTH loading and inference. The singleton is shared across
+        # worker threads — one OCR request fans out to interactions, clinical
+        # decision support and recommendations, each doing RAG lookups under
+        # `asyncio.gather` + `asyncio.to_thread` — and calling `model.encode`
+        # from several threads at once segfaults inside libtorch_cpu, taking the
+        # whole server down with SIGSEGV and no Python traceback. Confirmed from
+        # the macOS crash report: every faulting frame is libtorch_cpu.dylib.
+        #
+        # Encoding one short query is ~10ms, so serialising it costs far less
+        # than the crash it prevents. Re-entrant because `dimension` reads the
+        # model while `_load` still holds the lock.
+        self._lock = threading.RLock()
 
     # -- lifecycle ---------------------------------------------------------
     def _load(self):
@@ -41,12 +54,16 @@ class Embedder:
         ``'NoneType' object has no attribute 'encode'`` far from the real cause.
         Failing the same way every time keeps the error legible.
         """
-        if self._failed:
-            raise RuntimeError(
-                f"Embedding model '{self.model_name}' is unavailable "
-                "(install sentence-transformers, or check the model download)."
-            )
-        if self._model is None:
+        if self._model is not None:
+            return self._model          # fast path, no lock once loaded
+        with self._lock:
+            if self._failed:
+                raise RuntimeError(
+                    f"Embedding model '{self.model_name}' is unavailable "
+                    "(install sentence-transformers, or check the model download)."
+                )
+            if self._model is not None:  # another thread won the race
+                return self._model
             try:
                 from sentence_transformers import SentenceTransformer  # type: ignore
 
@@ -82,13 +99,15 @@ class Embedder:
         if not texts:
             return []
         model = self._load()
-        vectors = model.encode(
-            texts,
-            batch_size=32,
-            convert_to_numpy=True,
-            normalize_embeddings=True,   # unit vectors -> clean cosine scores
-            show_progress_bar=False,
-        )
+        # Serialised: concurrent encode() from several threads segfaults torch.
+        with self._lock:
+            vectors = model.encode(
+                texts,
+                batch_size=32,
+                convert_to_numpy=True,
+                normalize_embeddings=True,   # unit vectors -> clean cosine scores
+                show_progress_bar=False,
+            )
         return [v.tolist() for v in vectors]
 
     def embed_query(self, text: str) -> list[float]:

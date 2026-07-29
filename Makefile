@@ -29,7 +29,7 @@ bench-printed:  ## Benchmark the printed split only
 	$(PY) -m backend.ocr.benchmark --split printed --tag printed $(ARGS)
 
 # --- Tests ------------------------------------------------------------------
-test: test-ocr test-filter test-vision test-agents  ## Run all backend tests
+test: test-ocr test-filter test-match test-vision test-agents  ## Run all backend tests
 
 test-ocr:  ## Benchmark scoring tests (no OCR, fast)
 	PYTHONPATH=. $(PY) backend/ocr/tests/test_benchmark.py
@@ -49,3 +49,6 @@ serve:  ## Start the backend on 127.0.0.1:8000
 
 lint:  ## Lint the frontend (baseline: clean — 0 errors, 0 warnings)
 	$(NPM) run lint
+
+test-match:  ## Medicine matching + acceptance tiers (no OCR, fast)
+	PYTHONPATH=. $(PY) backend/ocr/tests/test_matching.py

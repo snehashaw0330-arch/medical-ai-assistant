@@ -25,6 +25,8 @@ import pandas as pd
 from rapidfuzz import fuzz, process
 
 from backend.config import settings
+# line_filter depends only on config, so this import cannot cycle.
+from backend.ocr.line_filter import FUNCTION_WORDS
 
 try:
     import jellyfish  # type: ignore
@@ -59,6 +61,21 @@ def normalize(name: str) -> str:
 _STRENGTH_TOKEN_RE = re.compile(
     r"^(?:\d+(?:\.\d+)?)?(?:mg|mgs|ml|mcg|gm|gms|g|iu|units?|cc|mm|%)?$"
 )
+
+
+#: A single-token product name at least this long is distinctive enough that
+#: matching one token of the query is real evidence. Below it, the whole query
+#: must account for the name — otherwise 2-3 character brands ("om", "af",
+#: "dat") harvest stray OCR fragments. Measured: 553 of the 209k names in the
+#: dataset are <=3 characters and 725 are ordinary English words, so short
+#: names collide with noise constantly.
+_DISTINCTIVE_NAME_LEN = 5
+
+#: How many WRatio candidates to re-rank by identity agreement before returning.
+#: Large enough that the correct product survives WRatio's preference for short
+#: substring matches — "asthakind tablet" ranks fifth for the query "arthakind
+#: drops" — and small enough that the extra scoring stays negligible.
+_CANDIDATE_POOL = 40
 
 
 def _identity_tokens(text: str) -> str:
@@ -96,19 +113,46 @@ def confirm_score(query: str, name: str) -> float:
     tablet" = 95.2), while letterhead noise tops out at 85.7 ("date" ->
     "dat cream"). It is used to *confirm* what WRatio proposes, never to rank.
 
-    One exception. ``token_set_ratio`` returns 100 whenever the candidate appears
-    as a token inside the query, which for a single-word product name means a
-    stray fragment scores perfectly: the OCR line "Wu Om" scored 100 against
-    "om suspension" and was named. For a single-token product the comparison is
-    therefore made with whole-string ``ratio``, which scores that pair 57 and
-    still gives "Cetirizine" -> "cetrizine" 94.7.
+    For a single-token product name the comparison is length-aware, because the
+    two failure modes pull in opposite directions:
+
+    * ``token_set_ratio`` returns 100 whenever the candidate appears as a token
+      of the query, so the fragment "Wu Om" scored a perfect 100 against
+      "om suspension". Short names need the *whole* query to account for them.
+    * Whole-string ``ratio`` punishes the extra words a real prescription line
+      carries, so "Advent drops 0.8ml TDS 3 days" scored 57 against "advent" —
+      a correct match rejected for being written out in full.
+
+    A name of five characters or more is distinctive enough that matching one
+    query token is real evidence, so those compare against the best-matching
+    token. Anything shorter must be accounted for by the entire query, which is
+    what keeps "om", "af" and "dat" from harvesting stray fragments.
     """
     q, core = _identity_tokens(query), _identity_tokens(name)
     if not q or not core:
         return 0.0
-    if len(core.split()) == 1:
-        return float(fuzz.ratio(q, core))
-    return float(fuzz.token_set_ratio(q, core))
+
+    if len(core.split()) > 1:
+        # A multi-word product ("nasoclear plus", "zofer md"). ``token_set_ratio``
+        # credits a query that is a subset of it, which is what lets a brand line
+        # match its extended dictionary entry. That is only evidence when the
+        # shared token is distinctive: the segment "days" is a subset of
+        # "days sr" and scored 100. Fall back to order-sensitive comparison when
+        # nothing substantial is shared.
+        shared = set(q.split()) & set(core.split())
+        if any(len(t) >= _DISTINCTIVE_NAME_LEN for t in shared):
+            return float(fuzz.token_set_ratio(q, core))
+        return float(fuzz.token_sort_ratio(q, core))
+
+    if len(core) >= _DISTINCTIVE_NAME_LEN:
+        # Compare against the best-matching query token, so a name written out in
+        # full ("Advent drops 0.8ml TDS") still matches. Function words are never
+        # drug names and are skipped — otherwise "TDS after food" matched
+        # "lafter 10 tablet" on the strength of "after" alone.
+        tokens = [t for t in q.split() if t not in FUNCTION_WORDS] or q.split()
+        return max((float(fuzz.ratio(t, core)) for t in tokens), default=0.0)
+
+    return float(fuzz.ratio(q, core))
 
 
 class MedicineIndex:
@@ -152,15 +196,21 @@ class MedicineIndex:
         idxs = self._candidate_indices(q)
         choices = {i: self._clean[i] for i in idxs}
 
-        results = process.extract(
-            q, choices, scorer=fuzz.WRatio, limit=limit * 4
-        )
+        # The pool is deliberately much larger than ``limit`` and independent of
+        # it. WRatio decides only what gets *considered*; the ranking below is by
+        # identity agreement. Tying the pool to ``limit`` meant a caller asking
+        # for one result fetched four candidates, and the correct product — which
+        # WRatio had ranked fifth — could not be recovered by any re-ranking.
+        pool = max(limit * 4, _CANDIDATE_POOL)
+        results = process.extract(q, choices, scorer=fuzz.WRatio, limit=pool)
         # results: list of (clean_value, score, key_index)
 
         # If the bucket gave us weak matches, retry against the full list once.
+        # Measured to add recall without adding noise, now that acceptance is
+        # judged by confirm_score rather than by this ranking score.
         if (not results or results[0][1] < 80) and len(idxs) < len(self._clean):
             full = {i: self._clean[i] for i in range(len(self._clean))}
-            results = process.extract(q, full, scorer=fuzz.WRatio, limit=limit * 4)
+            results = process.extract(q, full, scorer=fuzz.WRatio, limit=pool)
 
         q_phon = jellyfish.metaphone(q) if _HAS_PHONETIC else None
 
@@ -189,7 +239,16 @@ class MedicineIndex:
                 )
             )
 
-        scored.sort(key=lambda m: m.score, reverse=True)
+        # Rank by identity agreement first, ranking score second.
+        #
+        # WRatio is a good *recall* device — it proposes candidates despite OCR
+        # noise — but a poor ranker, because ``partial_ratio`` rewards a short
+        # name for sitting inside the query. Searching "Omeprazole" put
+        # "omep 20 capsule" (W=86.5) above "omeparazole 20mg capsule", so the
+        # correct product never reached the caller and a perfectly-read line went
+        # unresolved. Ordering by ``confirm`` puts whole-name agreement first
+        # (57.1 vs 95.2 for that pair) and keeps WRatio as the tie-breaker.
+        scored.sort(key=lambda m: (m.confirm, m.score), reverse=True)
         return scored[:limit]
 
     # -- details -----------------------------------------------------------

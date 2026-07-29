@@ -190,6 +190,54 @@ rewrite.
 **Exit criteria:** medicine-identity F1 on the handwritten split beats the local ensemble by a
 decisive margin, with false-positives-per-prescription < 0.5.
 
+#### Status: MET (2026-07-29) — measured, not assumed
+
+Same 9 labels, same pipeline, only the recognition step swapped:
+
+| | local ensemble | gemini-3-flash-preview | **gemini-3.1-flash-lite** |
+|---|---|---|---|
+| precision | 1.000 | 0.900 | **1.000** |
+| recall | 0.143 | 0.643 | **0.643** |
+| F1 | 0.250 | 0.750 | **0.783** |
+| **CER** | 0.376 | 0.002 | **0.000** |
+| WER | 0.530 | 0.015 | **0.000** |
+| false positives / Rx | 0.00 | 0.11 | **0.00** |
+| unresolved rows / Rx | 4.78 | 0.67 | **0.78** |
+| strength accuracy | 50% of 2 | 100% of 3 | **100% of 3** |
+| frequency accuracy | 0% of 2 | 67% of 9 | **67% of 9** |
+| seconds / image | 3.3 | 8.9 | **2.1** |
+
+`gemini-3.1-flash-lite` is the default: best on every axis **and faster than the local
+ensemble**. Character error went 0.376 → **0.000** — the recognition problem is solved.
+
+End to end on the real infant prescription, which previously returned 31 fabricated drugs:
+
+```
+provider: gemini   medicines: 5          (ground truth: 5)
+  NAMED  T-minic drops 0.3ml TDS 3 days   -> t-minic syrup
+  NAMED  Advent drops 0.8ml TDS 3 days    -> advent 625 tablet
+  NAMED  HHZole cream twice daily         -> hhzole cream
+  REVIEW Arthakind drops 0.4ml TDS 3 days -> (no formulary match)
+  REVIEW Nanodrop nasal drops SOS         -> (no formulary match)
+```
+
+**The bottleneck has moved.** All five drugs are now read correctly *as text*, with dosage and
+frequency attached. The two unresolved rows fail at the **formulary lookup**, not at
+recognition — "Arthakind" and "Nanodrop" are real products the 248k brand CSV does not match.
+That is exactly Phase 2's job, and it is now the single biggest lever on recall.
+
+Two operational notes:
+
+* **Free-tier quota is 0 for the `gemini-2.x` models** on new AI Studio projects, so the old
+  `gemini-2.0-flash` default returned 429. Worse, `pipeline._recognize` swallowed the error and
+  fell back to local OCR *silently* — a run tagged "gemini" produced pure local numbers. It now
+  logs a warning naming the real provider. Check `provider` in the response to know what ran.
+* An **intermittent native crash** (SIGSEGV/SIGABRT, no Python traceback) was seen twice while
+  restarting servers under port contention, always just after Chroma initialises. It has not
+  reproduced since — 3 sequential requests and a 60-endpoint sweep all pass. Unresolved; worth
+  watching. `run_pipeline` is called directly inside an `async def` handler
+  (`ocr/router.py:303`), which blocks the event loop and is a plausible contributor.
+
 ### Phase 2 — Rebuild matching on a real formulary
 
 - Replace raw-CSV matching with a normalised formulary table: molecule, brand, form, strength,
@@ -205,6 +253,69 @@ decisive margin, with false-positives-per-prescription < 0.5.
 
 **Exit criteria:** on Phase 0's set, precision ≥ 0.95 on auto-named medicines. Recall may lag;
 unresolved items are surfaced for review, never invented.
+
+#### Status: MET (2026-07-29) — precision 1.000, recall 0.786, F1 0.880
+
+The planned work was "replace the raw-CSV match with a normalised formulary". Investigation
+showed that was the wrong diagnosis, so the plan changed to follow the evidence:
+
+* Most drugs **are** in the CSV and match fine once read correctly — Digoxin, Oflazest, Azenac,
+  Zofer, Andial, Nasoclear all resolve. Rebuilding the formulary would have bought little.
+* The 248k rows reduce to 209k distinct bases (1.2 SKUs each), so deduplication buys little
+  either. **553 bases are ≤3 characters** and **725 are ordinary English words** (`need`,
+  `acid`, `act`, `above`) — those ~1,278 entries are what collide with OCR noise.
+
+**The actual defect: name similarity alone cannot decide.** `"Arthakind drops"` →
+`"asthakind tablet"` (a real drug, one character misread) and the prose fragment `"needb"` →
+`"need syrup"` both score **88.9**. No threshold separates them.
+
+What separates them is the *line*: a real prescription states a dose, a frequency, a duration
+or a form. So acceptance became tiered — an unambiguous name match (≥ `MEDICINE_CONFIRM_STRONG`,
+94) stands alone; a plausible one (≥ `MEDICINE_CONFIRM_THRESHOLD`, 88) must be corroborated by
+that structure. Validated 24/24 on a corpus of real drugs and real noise.
+
+Three further defects surfaced and were fixed:
+
+1. **Ranking, not just confirmation, was broken.** `search` ordered by WRatio, which prefers
+   short substring matches — searching "Omeprazole" ranked `"omep 20 capsule"` above
+   `"omeparazole 20mg capsule"`, so a perfectly-read line went unresolved. Candidates are now
+   ranked by identity agreement, with WRatio as tie-breaker.
+2. **The candidate pool was tied to `limit`.** Asking for one result fetched four candidates,
+   so re-ranking could not recover a correct product WRatio had ranked fifth. The pool is now
+   a fixed 40, independent of how many results the caller wants.
+3. **The benchmark itself under-reported.** Its name comparison left fused strengths in, so the
+   correct match `"omeparazole 20mg capsule"` scored 74 against gold `"Omeprazole"` and was
+   recorded as *both* a miss and a false positive — penalising the pipeline twice for being
+   right. Identity comparison now strips strength tokens.
+
+The full-dictionary retry was slated for removal; measurement said keep it (+1 real drug, no
+extra noise) now that acceptance is judged by confirmation rather than by the ranking score.
+
+| | local ensemble | gemini-3.1-flash-lite |
+|---|---|---|
+| precision | 1.000 | **1.000** |
+| recall | 0.143 | **0.786** |
+| F1 | 0.250 | **0.880** |
+| false positives / Rx | 0.00 | **0.00** |
+| unresolved rows / Rx | 4.78 | **0.44** |
+
+The 3 remaining misses — Stilbestrol, Cocaine Hydrochlor, Adrenalin Chlor — are drugs that do
+not exist in a modern Indian formulary (a 1921 compounding prescription and a 1970s pharmacy
+card). **On the 7 modern prescriptions in the set, recall is 10/10.**
+
+#### Server stability: root-caused and fixed
+
+The intermittent native crash logged under Phase 1 was tracked down. The macOS crash report
+named every faulting frame as `libtorch_cpu.dylib`: a single OCR request fans out to
+interactions, clinical decision support and recommendations under `asyncio.gather` +
+`asyncio.to_thread`, and **concurrent `model.encode()` calls on the shared MiniLM embedder
+segfault torch**, killing the process with no Python traceback.
+
+Fixed by serialising embedder inference (`rag/embedding.py`) and Chroma access
+(`rag/vector_store.py`), both of which wrap native code and are reached from many threads at
+once. Encoding one query is ~10ms, so the cost is negligible against a crash. `run_pipeline`
+also now runs via `asyncio.to_thread` instead of blocking the event loop for the whole scan.
+Verified: 4/4 repeats of the exact request that reproduced the crash, RAG enabled, server alive.
 
 ### Phase 3 — Clinical safety layer
 

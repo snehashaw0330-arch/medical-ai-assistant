@@ -11,6 +11,7 @@ TrOCR / Tesseract) which scores candidates and picks the best.
 from __future__ import annotations
 
 import logging
+import re
 
 from backend.config import settings
 from backend.ocr import field_extraction as fe
@@ -31,6 +32,16 @@ from backend.ocr.schemas import (
 
 
 logger = logging.getLogger("ocr.pipeline")
+
+#: A dosage form named on the line. Together with a strength, frequency or
+#: duration this is the corroborating evidence that separates a real (if
+#: misspelt) drug line from a stray fragment that merely resembles a brand name.
+_FORM_WORD_RE = re.compile(
+    r"\b(tab|tabs|tablet|tablets|cap|caps|capsule|capsules|syrup|susp|suspension|"
+    r"drop|drops|cream|gel|ointment|lotion|inj|injection|solution|spray|inhaler|"
+    r"sachet|powder|patch|suppository|eye drops|nasal drops)\b",
+    re.IGNORECASE,
+)
 
 
 def _row_confidence(match_score: float, seg_conf: float | None) -> float:
@@ -74,11 +85,24 @@ def _process_segment(seg: OCRSegment) -> tuple[ExtractedMedicine | None, str]:
 
     # Gate 2 — is the match trustworthy? The ranking score alone is not enough:
     # WRatio rewards substring hits, so noise routinely clears the threshold.
-    # A match must also agree at whole-word level (see confirm_score). Failing
-    # this does NOT discard the row — the line still looks like a medicine, so
-    # it is surfaced with its candidates and flagged for manual review rather
-    # than presented as a confidently identified drug.
-    confirmed = bool(best) and best.confirm >= settings.MEDICINE_CONFIRM_THRESHOLD
+    # A match must also agree at whole-word level (see confirm_score).
+    #
+    # That agreement is judged on a sliding scale, because a single cutoff
+    # provably cannot work: "Arthakind drops" -> "asthakind tablet" (a real drug
+    # with one character misread) and the prose fragment "needb" -> "need syrup"
+    # both score 88.9. What separates them is not the name — it is that a real
+    # prescription line also states a dose, a frequency, a duration or a form.
+    # So an unambiguous name match stands alone; a merely plausible one has to be
+    # corroborated by that structure.
+    #
+    # Failing this does NOT discard the row — the line still looks like a
+    # medicine, so it is surfaced with its candidates and flagged for manual
+    # review rather than presented as a confidently identified drug.
+    has_structure = bool(dosage or freq_raw or duration or _FORM_WORD_RE.search(seg.text))
+    confirmed = bool(best) and (
+        best.confirm >= settings.MEDICINE_CONFIRM_STRONG
+        or (best.confirm >= settings.MEDICINE_CONFIRM_THRESHOLD and has_structure)
+    )
     needs_review = match_score < settings.MEDICINE_MATCH_THRESHOLD or not confirmed
 
     details = None
@@ -109,8 +133,17 @@ def _recognize(image_path: str, provider_name: str | None):
         try:
             provider = get_provider(provider_name)
             return provider.extract(image_path), {}, provider.name
-        except Exception:  # noqa: BLE001 — fall through to local ensemble
-            pass
+        except Exception as exc:  # noqa: BLE001 — degrade to the local ensemble
+            # Loudly. Falling back silently meant a benchmark run tagged
+            # "gemini" could be pure local-ensemble output — an expired key or a
+            # 429 produced numbers indistinguishable from a successful run, and
+            # the quota error that caused it was never seen. The caller can tell
+            # what actually ran from the returned provider name.
+            logger.warning(
+                "Cloud provider %r failed (%s: %s) — falling back to the local "
+                "ensemble. Results are LOCAL, not %s.",
+                resolved, type(exc).__name__, str(exc)[:200], resolved,
+            )
 
     # Local multi-engine ensemble.
     index = get_index()

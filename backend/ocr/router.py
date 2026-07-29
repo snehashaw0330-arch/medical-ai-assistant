@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import shutil
 import time
@@ -300,7 +301,15 @@ async def extract_prescription(
         )
 
     try:
-        result = run_pipeline(str(dest), provider_name=provider)
+        # Off the event loop. `run_pipeline` blocks for seconds — preprocessing,
+        # a multi-engine torch ensemble or an HTTPS call to a vision model — so
+        # running it inline froze the entire server for the duration of every
+        # scan. It also crashed it: the Gemini SDK's synchronous client drives
+        # async internals, and calling that from inside a running event loop
+        # aborted the process natively (SIGSEGV/SIGABRT, no Python traceback) on
+        # larger images. A worker thread is both the correct place for blocking
+        # work and the fix for that crash.
+        result = await asyncio.to_thread(run_pipeline, str(dest), provider)
         # Automatically analyse drug interactions when multiple medicines are
         # detected, then run clinical decision support (reusing that report),
         # before persisting so the OCR history captures both inline.

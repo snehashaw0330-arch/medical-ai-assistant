@@ -67,7 +67,7 @@ from rapidfuzz import fuzz
 from rapidfuzz.distance import Levenshtein
 
 from backend.config import ROOT_DIR
-from backend.ocr.medicine_intelligence import normalize as normalize_name
+from backend.ocr.medicine_intelligence import _identity_tokens
 
 LABEL_DIR = ROOT_DIR / "datasets" / "prescriptions" / "labels"
 REPORT_DIR = ROOT_DIR / "docs" / "benchmarks"
@@ -272,7 +272,13 @@ def name_agreement(gold: str, predicted: str) -> tuple[float, str]:
     ``ratio``
         Whole-string ``fuzz.ratio``, for spelling drift.
     """
-    g, p = normalize_name(gold), normalize_name(predicted)
+    # Strength tokens are stripped before comparing, because the question here is
+    # drug *identity*, not pack size. ``normalize`` alone only removes digits at
+    # word boundaries, so a fused "20mg" survives it — and the correct match
+    # "omeparazole 20mg capsule" then scored 74 against the gold "Omeprazole" and
+    # was recorded as BOTH a miss and a false positive, penalising the pipeline
+    # twice for being right.
+    g, p = _identity_tokens(gold), _identity_tokens(predicted)
     if not g or not p:
         return 0.0, "empty"
     if g == p:

@@ -1,0 +1,364 @@
+{
+  "generated_at": "2026-07-29T04:06:44+00:00",
+  "run": {
+    "provider_requested": "gemini",
+    "engine": "gemini",
+    "preprocess": true,
+    "name_tolerance": 88.0,
+    "label_dir": "datasets/prescriptions/labels",
+    "labels_found": 9,
+    "images_missing": 0,
+    "images_failed": 0,
+    "pages_held_out": 0
+  },
+  "overall": {
+    "prescriptions": 9,
+    "gold_medicines": 14,
+    "true_positives": 10,
+    "false_positives": 1,
+    "false_negatives": 4,
+    "precision": 0.9091,
+    "recall": 0.7143,
+    "f1": 0.8,
+    "false_positives_per_prescription": 0.1111,
+    "unresolved_per_prescription": 0.4444,
+    "claims_per_prescription": 1.3333,
+    "matched_uncertain": 1,
+    "cer": 0.0,
+    "wer": 0.0,
+    "text_coverage": "4/9",
+    "strength_expected": 3,
+    "strength_accuracy": 1.0,
+    "strength_invented": 6,
+    "frequency_expected": 10,
+    "frequency_accuracy": 0.6,
+    "frequency_invented": 0,
+    "seconds_per_image": 1.8614
+  },
+  "by_split": {
+    "handwritten": {
+      "prescriptions": 6,
+      "gold_medicines": 11,
+      "true_positives": 8,
+      "false_positives": 0,
+      "false_negatives": 3,
+      "precision": 1.0,
+      "recall": 0.7273,
+      "f1": 0.8421,
+      "false_positives_per_prescription": 0.0,
+      "unresolved_per_prescription": 0.6667,
+      "claims_per_prescription": 1.5,
+      "matched_uncertain": 1,
+      "cer": 0.0,
+      "wer": 0.0,
+      "text_coverage": "1/6",
+      "strength_expected": 1,
+      "strength_accuracy": 1.0,
+      "strength_invented": 6,
+      "frequency_expected": 8,
+      "frequency_accuracy": 0.625,
+      "frequency_invented": 0,
+      "seconds_per_image": 2.2065
+    },
+    "printed": {
+      "prescriptions": 3,
+      "gold_medicines": 3,
+      "true_positives": 2,
+      "false_positives": 1,
+      "false_negatives": 1,
+      "precision": 0.6667,
+      "recall": 0.6667,
+      "f1": 0.6667,
+      "false_positives_per_prescription": 0.3333,
+      "unresolved_per_prescription": 0.0,
+      "claims_per_prescription": 1.0,
+      "matched_uncertain": 0,
+      "cer": 0.0,
+      "wer": 0.0,
+      "text_coverage": "3/3",
+      "strength_expected": 2,
+      "strength_accuracy": 1.0,
+      "strength_invented": 0,
+      "frequency_expected": 2,
+      "frequency_accuracy": 0.5,
+      "frequency_invented": 0,
+      "seconds_per_image": 1.1714
+    }
+  },
+  "held_out_pages": null,
+  "images": [
+    {
+      "image": "016e98c0d5d44420a42623dcb72e183f.jpg",
+      "split": "handwritten",
+      "status": "scored",
+      "certain": true,
+      "error": "",
+      "gold": 3,
+      "gold_uncertain": 2,
+      "claimed": 4,
+      "unresolved": 1,
+      "tp": 3,
+      "fp": 0,
+      "fn": 0,
+      "matched_uncertain": 1,
+      "cer": null,
+      "wer": null,
+      "invented": [],
+      "missed": [],
+      "matched": [
+        {
+          "gold": "T-Minic",
+          "predicted": "t-minic syrup",
+          "agreement": 100.0,
+          "rule": "exact"
+        },
+        {
+          "gold": "Advent",
+          "predicted": "advent 625 tablet",
+          "agreement": 100.0,
+          "rule": "exact"
+        },
+        {
+          "gold": "HH-zole",
+          "predicted": "hhzole cream",
+          "agreement": 92.3,
+          "rule": "ratio"
+        }
+      ],
+      "engine": "gemini",
+      "seconds": 4.44
+    },
+    {
+      "image": "1.jpg",
+      "split": "handwritten",
+      "status": "scored",
+      "certain": true,
+      "error": "",
+      "gold": 1,
+      "gold_uncertain": 0,
+      "claimed": 1,
+      "unresolved": 0,
+      "tp": 1,
+      "fp": 0,
+      "fn": 0,
+      "matched_uncertain": 0,
+      "cer": 0.0,
+      "wer": 0.0,
+      "invented": [],
+      "missed": [],
+      "matched": [
+        {
+          "gold": "Digoxin",
+          "predicted": "digoxin 0.25mg tablet",
+          "agreement": 95.0,
+          "rule": "prefix"
+        }
+      ],
+      "engine": "gemini",
+      "seconds": 1.48
+    },
+    {
+      "image": "10.jpg",
+      "split": "handwritten",
+      "status": "scored",
+      "certain": true,
+      "error": "",
+      "gold": 0,
+      "gold_uncertain": 0,
+      "claimed": 0,
+      "unresolved": 0,
+      "tp": 0,
+      "fp": 0,
+      "fn": 0,
+      "matched_uncertain": 0,
+      "cer": null,
+      "wer": null,
+      "invented": [],
+      "missed": [],
+      "matched": [],
+      "engine": "gemini",
+      "seconds": 1.99
+    },
+    {
+      "image": "2.jpg",
+      "split": "handwritten",
+      "status": "scored",
+      "certain": true,
+      "error": "",
+      "gold": 3,
+      "gold_uncertain": 1,
+      "claimed": 3,
+      "unresolved": 0,
+      "tp": 3,
+      "fp": 0,
+      "fn": 0,
+      "matched_uncertain": 0,
+      "cer": null,
+      "wer": null,
+      "invented": [],
+      "missed": [],
+      "matched": [
+        {
+          "gold": "Azenac MR",
+          "predicted": "azenac mr tablet",
+          "agreement": 100.0,
+          "rule": "exact"
+        },
+        {
+          "gold": "Oflazest OZ",
+          "predicted": "oflazest oz 200mg/500mg tablet",
+          "agreement": 95.0,
+          "rule": "prefix"
+        },
+        {
+          "gold": "Andial",
+          "predicted": "andial 2mg tablet",
+          "agreement": 95.0,
+          "rule": "prefix"
+        }
+      ],
+      "engine": "gemini",
+      "seconds": 1.84
+    },
+    {
+      "image": "20.jpg",
+      "split": "handwritten",
+      "status": "scored",
+      "certain": true,
+      "error": "",
+      "gold": 1,
+      "gold_uncertain": 0,
+      "claimed": 0,
+      "unresolved": 1,
+      "tp": 0,
+      "fp": 0,
+      "fn": 1,
+      "matched_uncertain": 0,
+      "cer": null,
+      "wer": null,
+      "invented": [],
+      "missed": [
+        "Stilbestrol"
+      ],
+      "matched": [],
+      "engine": "gemini",
+      "seconds": 1.58
+    },
+    {
+      "image": "3.jpg",
+      "split": "handwritten",
+      "status": "scored",
+      "certain": true,
+      "error": "",
+      "gold": 3,
+      "gold_uncertain": 0,
+      "claimed": 1,
+      "unresolved": 2,
+      "tp": 1,
+      "fp": 0,
+      "fn": 2,
+      "matched_uncertain": 0,
+      "cer": null,
+      "wer": null,
+      "invented": [],
+      "missed": [
+        "Cocaine Hydrochlor",
+        "Adrenalin Chlor"
+      ],
+      "matched": [
+        {
+          "gold": "Saline Solution",
+          "predicted": "salzine ointment",
+          "agreement": 92.3,
+          "rule": "ratio"
+        }
+      ],
+      "engine": "gemini",
+      "seconds": 1.9
+    },
+    {
+      "image": "rx_00000.png",
+      "split": "printed",
+      "status": "scored",
+      "certain": true,
+      "error": "",
+      "gold": 1,
+      "gold_uncertain": 0,
+      "claimed": 1,
+      "unresolved": 0,
+      "tp": 1,
+      "fp": 0,
+      "fn": 0,
+      "matched_uncertain": 0,
+      "cer": 0.0,
+      "wer": 0.0,
+      "invented": [],
+      "missed": [],
+      "matched": [
+        {
+          "gold": "Cetirizine",
+          "predicted": "cetirizine 10mg tablet",
+          "agreement": 95.0,
+          "rule": "prefix"
+        }
+      ],
+      "engine": "gemini",
+      "seconds": 1.18
+    },
+    {
+      "image": "rx_00001.png",
+      "split": "printed",
+      "status": "scored",
+      "certain": true,
+      "error": "",
+      "gold": 1,
+      "gold_uncertain": 0,
+      "claimed": 1,
+      "unresolved": 0,
+      "tp": 0,
+      "fp": 1,
+      "fn": 1,
+      "matched_uncertain": 0,
+      "cer": 0.0,
+      "wer": 0.0,
+      "invented": [
+        "omeparazole 20mg capsule"
+      ],
+      "missed": [
+        "Omeprazole"
+      ],
+      "matched": [],
+      "engine": "gemini",
+      "seconds": 1.12
+    },
+    {
+      "image": "rx_00002.png",
+      "split": "printed",
+      "status": "scored",
+      "certain": true,
+      "error": "",
+      "gold": 1,
+      "gold_uncertain": 0,
+      "claimed": 1,
+      "unresolved": 0,
+      "tp": 1,
+      "fp": 0,
+      "fn": 0,
+      "matched_uncertain": 0,
+      "cer": 0.0,
+      "wer": 0.0,
+      "invented": [],
+      "missed": [],
+      "matched": [
+        {
+          "gold": "Paracetamol",
+          "predicted": "paracetamol tablet",
+          "agreement": 100.0,
+          "rule": "exact"
+        }
+      ],
+      "engine": "gemini",
+      "seconds": 1.22
+    }
+  ]
+}

@@ -17,6 +17,7 @@ returns ``False`` and the API surfaces a clean "not installed" message.
 
 from __future__ import annotations
 
+import threading
 from dataclasses import dataclass
 
 from backend.rag.config import config, get_logger
@@ -71,31 +72,41 @@ class ChromaVectorStore(VectorStore):
         self._client = None
         self._collection = None
         self._failed = False
+        # Chroma wraps a native store and is not safe to open or query from
+        # several threads at once. The app reaches it from many at a time: a
+        # single OCR request fans out to interactions, clinical decision support
+        # and recommendations, each running under `asyncio.gather` +
+        # `asyncio.to_thread`. Without this lock two threads could both find
+        # `_collection is None` and each construct a PersistentClient over the
+        # same directory, which killed the process outright — SIGSEGV/SIGABRT
+        # with no Python traceback, always moments after "collection ready".
+        self._lock = threading.RLock()
 
     def _get_collection(self):
-        if self._collection is None and not self._failed:
-            try:
-                import chromadb  # type: ignore
-                from chromadb.config import Settings  # type: ignore
+        with self._lock:
+            if self._collection is None and not self._failed:
+                try:
+                    import chromadb  # type: ignore
+                    from chromadb.config import Settings  # type: ignore
 
-                self._client = chromadb.PersistentClient(
-                    path=str(config.PERSIST_DIR),
-                    settings=Settings(anonymized_telemetry=False, allow_reset=True),
-                )
-                # We supply our own embeddings, so no embedding_function here.
-                self._collection = self._client.get_or_create_collection(
-                    name=config.COLLECTION_NAME,
-                    metadata={"hnsw:space": config.DISTANCE_METRIC},
-                )
-                logger.info(
-                    "Chroma collection '%s' ready at %s",
-                    config.COLLECTION_NAME, config.PERSIST_DIR,
-                )
-            except Exception as exc:  # noqa: BLE001
-                self._failed = True
-                logger.error("ChromaDB unavailable: %s", exc)
-                raise
-        return self._collection
+                    self._client = chromadb.PersistentClient(
+                        path=str(config.PERSIST_DIR),
+                        settings=Settings(anonymized_telemetry=False, allow_reset=True),
+                    )
+                    # We supply our own embeddings, so no embedding_function here.
+                    self._collection = self._client.get_or_create_collection(
+                        name=config.COLLECTION_NAME,
+                        metadata={"hnsw:space": config.DISTANCE_METRIC},
+                    )
+                    logger.info(
+                        "Chroma collection '%s' ready at %s",
+                        config.COLLECTION_NAME, config.PERSIST_DIR,
+                    )
+                except Exception as exc:  # noqa: BLE001
+                    self._failed = True
+                    logger.error("ChromaDB unavailable: %s", exc)
+                    raise
+            return self._collection
 
     # -- contract ----------------------------------------------------------
     def available(self) -> bool:
@@ -106,23 +117,28 @@ class ChromaVectorStore(VectorStore):
 
     def add(self, ids, embeddings, documents, metadatas) -> None:
         collection = self._get_collection()
-        # Upsert so re-indexing the same chunk id is idempotent.
-        collection.upsert(
-            ids=list(ids),
-            embeddings=list(embeddings),
-            documents=list(documents),
-            metadatas=list(metadatas),
-        )
+        # Serialised for the same reason as initialisation: concurrent native
+        # access to one store is what crashed the process.
+        with self._lock:
+            # Upsert so re-indexing the same chunk id is idempotent.
+            collection.upsert(
+                ids=list(ids),
+                embeddings=list(embeddings),
+                documents=list(documents),
+                metadatas=list(metadatas),
+            )
 
     def query(self, embedding, top_k: int) -> list[RetrievedChunk]:
         collection = self._get_collection()
-        if collection.count() == 0:
-            return []
-        res = collection.query(
-            query_embeddings=[embedding],
-            n_results=min(top_k, collection.count()),
-            include=["documents", "metadatas", "distances"],
-        )
+        with self._lock:
+            count = collection.count()
+            if count == 0:
+                return []
+            res = collection.query(
+                query_embeddings=[embedding],
+                n_results=min(top_k, count),
+                include=["documents", "metadatas", "distances"],
+            )
         docs = (res.get("documents") or [[]])[0]
         metas = (res.get("metadatas") or [[]])[0]
         dists = (res.get("distances") or [[]])[0]

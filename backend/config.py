@@ -40,7 +40,12 @@ class Settings:
 
     # Gemini (optional — only used when a key is present)
     GEMINI_API_KEY: str | None = os.getenv("GEMINI_API_KEY")
-    GEMINI_MODEL: str = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
+    # Measured on the labelled set (see docs/benchmarks/): gemini-3.1-flash-lite
+    # scored F1 0.783 / CER 0.000 at 2.1s per image, beating gemini-3-flash-preview
+    # (F1 0.750, 8.9s) and the local ensemble (F1 0.250, CER 0.376). Note the
+    # gemini-2.x models return a free-tier quota of 0 on new projects, so the
+    # previous default silently fell back to local OCR.
+    GEMINI_MODEL: str = os.getenv("GEMINI_MODEL", "gemini-3.1-flash-lite")
 
     # OpenAI GPT-4o vision (alternative)
     OPENAI_API_KEY: str | None = os.getenv("OPENAI_API_KEY")
@@ -482,11 +487,21 @@ class Settings:
     # what separates "Paracetmol 500" -> paracetamol (95.2) from "date" ->
     # "dat cream" (85.7). Below it the row is kept but marked needs_review with
     # its candidates, never resolved to a named medicine.
-    # 90 sits in a measured gap: the weakest genuine match observed is 94.7
-    # ("Cetirizine" -> "cetrizine tablet") and the strongest false one is 88.9
-    # (the OCR fragment "needb" -> "need syrup").
+    # Acceptance is tiered, because name similarity alone cannot separate the two
+    # populations: "Arthakind drops" -> "asthakind tablet" (a real drug, one
+    # character misread) and the prose fragment "needb" -> "need syrup" both
+    # score exactly 88.9. No single threshold can keep one and drop the other.
+    #
+    # So a claim is accepted either on an unambiguous name match (>= STRONG), or
+    # on a plausible name match (>= THRESHOLD) *corroborated by prescription
+    # structure* on the same line — a strength, a frequency, a duration or a
+    # dosage form. Real medicine lines carry that structure; stray OCR fragments
+    # and letterhead words do not.
     MEDICINE_CONFIRM_THRESHOLD: float = float(
-        os.getenv("MEDICINE_CONFIRM_THRESHOLD", "90")
+        os.getenv("MEDICINE_CONFIRM_THRESHOLD", "88")
+    )
+    MEDICINE_CONFIRM_STRONG: float = float(
+        os.getenv("MEDICINE_CONFIRM_STRONG", "94")
     )
     # An OCR line the engine itself read with less confidence than this (0-1)
     # cannot support a medicine claim. Real medicine lines measure 0.65-0.93;
