@@ -9,6 +9,7 @@ import {
   Pill,
   AlertTriangle,
   StickyNote,
+  FileQuestion,
   Loader2,
   CheckCircle2,
   ShieldCheck,
@@ -33,7 +34,7 @@ import ClinicalReport from '@/ui/ClinicalReport'
 import PrescriptionValidationReport from '@/ui/PrescriptionValidationReport'
 import { extractPrescription, assessImageQuality, checkInteractions, checkValidation } from '@/lib/api'
 import { saveReport } from '@/lib/storage'
-import { errorMessage, isCanceled, titleCase, confidenceColor, pct, freqText } from '@/lib/utils'
+import { errorMessage, isCanceled, titleCase, confidenceColor, pct, freqText, isIdentified } from '@/lib/utils'
 import { generatePrescriptionPdf, readFileAsDataUrl, DISCLAIMER } from '@/lib/pdf'
 
 const VERIFY_BELOW = 70
@@ -70,7 +71,8 @@ function EditField({ label, value, onChange }) {
 function MedicineCard({ med, editing, onChange, onRemove }) {
   const conf = pct(med.confidence)
   const low = med.needs_review || conf < VERIFY_BELOW
-  const name = med.name ? titleCase(med.name) : med.raw_text
+  const identified = isIdentified(med)
+  const name = identified ? titleCase(med.name) : med.raw_text
   const d = med.details
 
   if (editing) {
@@ -105,6 +107,41 @@ function MedicineCard({ med, editing, onChange, onRemove }) {
             <EditField label="Frequency" value={freqText(med)} onChange={(v) => onChange({ frequency_expanded: v })} />
             <EditField label="Duration" value={med.duration} onChange={(v) => onChange({ duration: v })} />
           </div>
+        </div>
+      </Card>
+    )
+  }
+
+  // A row the pipeline read but refused to identify. Deliberately does not look
+  // like a medicine: no pill icon, no drug-name typography, and the percentage
+  // is relabelled, because here it measures character legibility rather than
+  // how confident we are in a match.
+  if (!identified) {
+    return (
+      <Card className="animate-fade-up border-warning/30">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex items-start gap-3">
+            <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-warning/10 text-warning">
+              <FileQuestion size={22} />
+            </span>
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-warning">
+                Unidentified line
+              </p>
+              <p className="mt-1 font-mono text-base leading-snug text-foreground">{med.raw_text}</p>
+            </div>
+          </div>
+          <span className="shrink-0 rounded-full bg-surface-2 px-3 py-1 text-xs font-medium text-muted">
+            {conf}% legible
+          </span>
+        </div>
+
+        <div className="mt-5 flex items-start gap-2 rounded-xl bg-warning/10 p-3 text-sm text-foreground">
+          <AlertTriangle size={16} className="mt-0.5 shrink-0 text-warning" />
+          <span>
+            This line could not be matched to a known medicine. It is shown exactly as scanned —
+            do not read it as an identified drug.
+          </span>
         </div>
       </Card>
     )
@@ -611,7 +648,12 @@ export default function PrescriptionOCR() {
                   return (
                     <div key={i} className="border-b border-border pb-4 last:border-0 last:pb-0">
                       <p className="font-semibold text-foreground">
-                        {m.name ? titleCase(m.name) : m.raw_text}
+                        {isIdentified(m)
+                          ? titleCase(m.name)
+                          : <span className="font-mono font-normal">{m.raw_text}</span>}
+                        {!isIdentified(m) && (
+                          <span className="ml-2 text-xs font-normal uppercase tracking-wide text-warning">unidentified</span>
+                        )}
                         <span className="ml-2 text-xs font-normal text-muted">match score {(m.candidates?.[0]?.score ?? 0).toFixed(0)}%</span>
                       </p>
                       {alts.length > 0 && (

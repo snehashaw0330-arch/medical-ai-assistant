@@ -6,7 +6,7 @@
  * logic). Lazy-imports jsPDF so the library is only pulled into the bundle
  * when a user actually downloads a report.
  */
-import { titleCase, pct, freqText } from '@/lib/utils'
+import { titleCase, pct, freqText, isIdentified } from '@/lib/utils'
 
 export const DISCLAIMER =
   'This is an AI-assisted transcription of a prescription and may contain errors. ' +
@@ -97,8 +97,16 @@ export async function generatePrescriptionPdf({ meds = [], fields = {}, score = 
   line('Medicines', { size: 14, bold: true, gap: 20, color: [37, 99, 235] })
   meds.forEach((m, i) => {
     ensure(40)
-    const name = m.name ? titleCase(m.name) : m.raw_text
-    line(`${i + 1}. ${name}   (${pct(m.confidence)}%)`, { size: 12, bold: true, gap: 16 })
+    // An unidentified row must not read as a prescribed drug once the report
+    // leaves the app — label it, and never print its legibility score as if it
+    // were match confidence.
+    if (isIdentified(m)) {
+      line(`${i + 1}. ${titleCase(m.name)}   (${pct(m.confidence)}%)`, { size: 12, bold: true, gap: 16 })
+    } else {
+      line(`${i + 1}. [UNIDENTIFIED] "${m.raw_text}"`, { size: 12, bold: true, color: [180, 83, 9], gap: 16 })
+      line('Not matched to a known medicine — shown exactly as scanned.',
+        { size: 10, color: [180, 83, 9], gap: 15 })
+    }
     line(`Dosage: ${m.dosage || '-'}    Frequency: ${freqText(m) || '-'}    Duration: ${m.duration || '-'}`,
       { size: 10, color: [80, 80, 80], gap: 15 })
     if (m.details?.uses?.length) line(`Uses: ${m.details.uses.slice(0, 3).join(', ')}`, { size: 10, color: [80, 80, 80], gap: 15 })

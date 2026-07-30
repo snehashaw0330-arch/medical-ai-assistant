@@ -21,6 +21,7 @@ import {
   HeartPulse,
   Calendar,
   ArrowDownWideNarrow,
+  AlertTriangle,
 } from 'lucide-react'
 import Card, { CardHeader } from '@/ui/Card'
 import Button from '@/ui/Button'
@@ -36,7 +37,7 @@ import {
   historyImageUrl,
 } from '@/lib/api'
 import { generatePrescriptionPdf, urlToDataUrl } from '@/lib/pdf'
-import { formatDate, titleCase, confidenceColor, pct, freqText, errorMessage } from '@/lib/utils'
+import { formatDate, titleCase, confidenceColor, pct, freqText, errorMessage, isIdentified } from '@/lib/utils'
 
 const PAGE_SIZE = 8
 
@@ -160,16 +161,29 @@ function IconButton({ title, onClick, disabled, danger, children }) {
 // ============================================================
 function MedicineBlock({ m }) {
   const conf = pct(m.confidence)
-  const name = m.name ? titleCase(m.name) : m.raw_text
+  const identified = isIdentified(m)
   const d = m.details
   return (
-    <div className="rounded-xl bg-surface-2 p-3">
+    <div className={identified ? 'rounded-xl bg-surface-2 p-3' : 'rounded-xl border border-warning/30 bg-surface-2 p-3'}>
       <div className="flex items-center justify-between gap-2">
-        <p className="flex items-center gap-2 font-semibold text-foreground">
-          <Pill size={16} className="text-primary" /> {name}
-        </p>
-        <span className="text-xs font-semibold" style={{ color: confidenceColor(conf) }}>{conf}%</span>
+        {identified ? (
+          <p className="flex items-center gap-2 font-semibold text-foreground">
+            <Pill size={16} className="text-primary" /> {titleCase(m.name)}
+          </p>
+        ) : (
+          <p className="flex items-center gap-2 font-mono text-sm text-foreground">
+            <AlertTriangle size={16} className="shrink-0 text-warning" /> {m.raw_text}
+          </p>
+        )}
+        {identified ? (
+          <span className="text-xs font-semibold" style={{ color: confidenceColor(conf) }}>{conf}%</span>
+        ) : (
+          <span className="shrink-0 text-xs font-medium text-muted">{conf}% legible</span>
+        )}
       </div>
+      {!identified && (
+        <p className="mt-1 text-xs text-warning">Not matched to a known medicine — shown as scanned.</p>
+      )}
       <p className="mt-1 text-xs text-muted">
         Dosage: {m.dosage || '—'} · Frequency: {freqText(m) || '—'} · Duration: {m.duration || '—'}
       </p>

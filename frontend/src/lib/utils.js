@@ -35,6 +35,21 @@ export function titleCase(str = '') {
 /** Convert a 0..1 confidence to a rounded 0..100 percentage. */
 export const pct = (v) => Math.round((v || 0) * 100)
 
+/**
+ * True when the pipeline actually matched this row to a formulary entry.
+ *
+ * A row with `name: null` is not a failure — it is the safety gate firing. The
+ * pipeline read the line but refused to claim which medicine it is, and passes
+ * back only `raw_text`. Such rows must never be rendered like an identified
+ * drug: on a real scan the same illegible line was read as "Dilaudid" (an
+ * opioid) by the model and transcribed as "Diclofenac" (an NSAID) by a human.
+ *
+ * Note the confidence on an unidentified row means something different too —
+ * it is how clearly the *characters* were read, not how likely the row is to be
+ * that drug. Never show it beside a medicine name without relabelling it.
+ */
+export const isIdentified = (m) => Boolean(m?.name)
+
 /** Human-readable frequency for a medicine row (expanded > raw > none). */
 export const freqText = (m) => m.frequency_expanded || titleCase(m.frequency || '') || null
 
