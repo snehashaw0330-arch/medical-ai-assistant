@@ -52,16 +52,6 @@ async def _attach_interactions(result: PrescriptionResult) -> None:
         logger.exception("Auto drug-interaction analysis failed (OCR unaffected)")
 
 
-def _int_or_none(value) -> int | None:
-    """Best-effort parse of an OCR'd age string ('45', '45 yrs') to an int."""
-    if value is None:
-        return None
-    import re
-
-    match = re.search(r"\d{1,3}", str(value))
-    return int(match.group()) if match else None
-
-
 async def _attach_clinical(result: PrescriptionResult) -> None:
     """Run clinical decision support after OCR (final stage of the pipeline).
 
@@ -81,10 +71,14 @@ async def _attach_clinical(result: PrescriptionResult) -> None:
         from backend.clinical_decision import analyze_clinical
         from backend.clinical_decision.schemas import ClinicalAnalysisRequest
 
+        from backend.ocr.parser import age_to_years
+
         fields = result.fields
+        # age_to_years understands units ("6 months" -> 0, "45 yrs" -> 45);
+        # naively grabbing the digits would grade an infant as a 6-year-old.
         req = ClinicalAnalysisRequest(
             medicines=names,
-            age=_int_or_none(fields.age),
+            age=age_to_years(fields.age),
             gender=(fields.gender or None),
             diagnosis=(fields.diagnosis or None),
             include_rag=True,

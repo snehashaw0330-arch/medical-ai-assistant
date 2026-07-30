@@ -331,6 +331,59 @@ Verified: 4/4 repeats of the exact request that reproduced the crash, RAG enable
 **Exit criteria:** no unconfirmed medicine can reach interactions, CDSS or a stored report;
 pediatric/geriatric plausibility rules covered by tests.
 
+#### Status: MET (2026-07-30) — the infant case now grades moderate, measured live
+
+The gating half was already done (unconfirmed medicines no longer reach interactions, CDSS
+or recommendations). The patient-plausibility half shipped 2026-07-30:
+
+- `VISION_PROMPT` now requests a `patient` object (name/age/sex/weight, **verbatim, units
+  included**); `_json.py` parses it and `pipeline._merge_patient` overlays it on the
+  regex-parsed fields (VLM wins — the regex reads "6" out of "Age 6 months").
+- `parser.age_to_years` converts age-as-written to whole years at the clinical boundary:
+  "6 months" → 0, "45/M" → 45, "6/12" → 0. Both former call sites (`ocr/router.py`,
+  `agents/clinical_agent.py`) had a digits-only parse that graded the 6-month-old as a
+  6-year-old.
+- The `age < 2` rule is now a MODERATE **red flag** (was a `possible_risk`, which the risk
+  headline ignores by design — `risk_analyzer.assess` only reads red flags + interactions).
+- Covered by `make test-clinical` (pediatric chain) + 7 new vision-path tests.
+
+Measured on the real infant prescription (016e98c0…jpg), live server, full auto-pipeline:
+`fields.age: "6 months"`, `age→years: 0`, **risk moderate / 51.0**, infant red flag raised
+(was: `age: None`, risk low, 0 warnings). Benchmarks unchanged on both providers
+(gemini F1 0.880 / CER 0.000, local F1 0.250 — no regression from the prompt change).
+
+Still open within the original Phase 3 wording: explicit clinician confirmation before
+persistence, and confidence-score calibration (blocked on the ≥100-label set from Phase 0).
+
+#### Follow-on (2026-07-30): the field parser assumed line-structured OCR
+
+Found from a UI screenshot — the "Clinic / Hospital" card rendered the entire 500-character
+transcription. `raw_text` from a vision model has **zero newlines**, but `parser.py` was
+written for the local ensemble's one-line-per-page-line output, so `_HOSPITAL_RE`'s
+`^…$` matched the whole document and every `([^\n]+)` capture became rest-of-document.
+Also: `Dr. Baba Saheb Ambedkar Hospital` (an institution named after a person) was reported
+as the *doctor*, `Complaints/History:` and bare `C/o` never matched, and month-first dates
+were dropped.
+
+Fixed in two layers — the VLM now returns a `visit` object (keys matching
+`PrescriptionFields` 1:1) alongside `patient`, and the regex fallback bounds every capture
+(`_bound_value` at the next statement-anchored `Label:`, `_find_hospital` narrowing to one
+sentence, length caps). Both layers matter: the regex is what `--provider local` uses.
+
+Benchmarks after the change: gemini **P 1.000 / R 0.786 / F1 0.880 / CER 0.000 / 0.00 FP**
+— unchanged, with frequency capture up 45.5% → 63.6%; local path unchanged. Two tuning
+traps are documented in the code comments (an unanchored next-label pattern truncates the
+value it protects; asking for line breaks makes the model transcribe printed ruled lines,
+costing 17 CER points until `_strip_rules` drops them).
+
+**Known limitation, measured and not fixed:** on a genuinely illegible drug line the model
+returns a different confident answer per run — the same injection on the hospital card read
+**Diclofenac**, **Dicyclomine** and **Dilaudid** across prompt variants at temperature 0.
+An NSAID, an antispasmodic and a Schedule-II opioid. Recognition cannot be trusted on such
+input; what holds is the two-gate filter leaving the row `unresolved` so it never reaches
+interactions, CDSS or recommendations. This is the concrete case for §5's
+clinician-in-the-loop requirement.
+
 ### Phase 4 — Platform hardening  *(independent; can run in parallel from day 1)*
 
 Known issues found during the 2026-07-28 audit, none blocking the phases above:

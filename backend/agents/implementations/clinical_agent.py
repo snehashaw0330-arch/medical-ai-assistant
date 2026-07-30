@@ -12,15 +12,7 @@ from __future__ import annotations
 from backend.agents.base_agent import AgentOutcome, BaseAgent
 from backend.agents.config import agent_config as ac
 from backend.agents.context_manager import AgentContext, MemoryKeys
-
-
-def _int_or_none(value) -> int | None:
-    if value is None:
-        return None
-    import re
-
-    m = re.search(r"\d{1,3}", str(value))
-    return int(m.group()) if m else None
+from backend.ocr.parser import age_to_years
 
 
 class ClinicalAgent(BaseAgent):
@@ -44,7 +36,9 @@ class ClinicalAgent(BaseAgent):
 
         # Patient context from inputs, falling back to OCR-parsed fields.
         fields = (ocr or {}).get("fields", {}) if ocr else {}
-        age = _int_or_none(inputs.get("age") or fields.get("age"))
+        # age_to_years understands units ("6 months" -> 0); grabbing the bare
+        # digits here graded the real infant prescription as a 6-year-old.
+        age = age_to_years(inputs.get("age") or fields.get("age"))
         gender = inputs.get("gender") or fields.get("gender")
         diagnosis = inputs.get("diagnosis") or fields.get("diagnosis")
 

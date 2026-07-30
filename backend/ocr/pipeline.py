@@ -44,6 +44,53 @@ _FORM_WORD_RE = re.compile(
 )
 
 
+#: Sex markers as written on a script -> the parser's Male/Female convention.
+_SEX_NORMALISE = {"m": "Male", "male": "Male", "f": "Female", "female": "Female"}
+
+#: Visit fields that legitimately hold a paragraph, vs short identity fields.
+_PROSE_FIELDS = frozenset({"diagnosis", "advice", "follow_up", "investigations"})
+_MAX_IDENTITY = 200
+_MAX_PROSE = 1000
+
+
+def _merge_vlm_fields(fields: PrescriptionFields, raw: RawOCRResult) -> None:
+    """Overlay vision-LLM patient + visit fields onto the regex-parsed ones.
+
+    The VLM reads the page's layout directly, so its values win over regex
+    guesses from ``raw_text``. The regex is written for line-structured OCR
+    output and a VLM returns one flowing paragraph, which made every
+    rest-of-line capture a rest-of-document capture — measured: the hospital
+    field once held the entire transcription, and "Dr. Baba Saheb Ambedkar
+    Hospital" (an institution) was reported as the doctor.
+
+    Age keeps its units here (converted to years only at the clinical
+    boundary), sex is normalised to the parser's Male/Female convention, and
+    weight lands in ``vitals`` in the parser's "<n> kg" form.
+    """
+    patient = raw.patient
+    if patient.get("name"):
+        fields.patient = patient["name"]
+    if patient.get("age"):
+        fields.age = patient["age"]
+    sex = (patient.get("sex") or "").strip().lower()
+    if sex in _SEX_NORMALISE:
+        fields.gender = _SEX_NORMALISE[sex]
+    if patient.get("weight"):
+        m = re.search(r"\d{1,3}(?:\.\d+)?", patient["weight"])
+        if m:
+            fields.vitals["weight"] = f"{m.group(0)} kg"
+
+    # Visit keys match PrescriptionFields 1:1, so no mapping table is needed.
+    # Identity fields are capped tight (a clinic's name is never 500 chars, and
+    # an over-long one means the model dumped the page into it); prose fields
+    # get a generous cap because real CT findings do run to a paragraph.
+    for key, value in raw.visit.items():
+        if not value or not hasattr(fields, key):
+            continue
+        limit = _MAX_PROSE if key in _PROSE_FIELDS else _MAX_IDENTITY
+        setattr(fields, key, value[:limit].strip())
+
+
 def _row_confidence(match_score: float, seg_conf: float | None) -> float:
     dict_conf = match_score / 100.0
     if seg_conf is None:
@@ -219,8 +266,11 @@ def run_pipeline(
             passthrough.append(m)
     final = list(deduped.values()) + passthrough
 
-    # 5. Structured fields (doctor/patient/vitals/...).
+    # 5. Structured fields (doctor/patient/vitals/...), then overlay the
+    # VLM-transcribed demographics — the regex only sees raw_text and can
+    # misread or miss the "Age 6months / Wt 6.6" form line entirely.
     fields = PrescriptionFields(**rx_parser.parse_fields(raw.full_text))
+    _merge_vlm_fields(fields, raw)
 
     # 6. Confidence + warnings.
     confident = [m for m in final if not m.needs_review]

@@ -7,7 +7,7 @@ PY := ./venv/bin/python
 NPM := npm --prefix frontend
 
 .DEFAULT_GOAL := help
-.PHONY: help bench bench-handwritten bench-printed test test-ocr test-agents serve lint
+.PHONY: help bench bench-handwritten bench-printed test test-ocr test-agents test-clinical serve lint
 
 help:  ## Show this help
 	@grep -hE '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) \
@@ -29,7 +29,7 @@ bench-printed:  ## Benchmark the printed split only
 	$(PY) -m backend.ocr.benchmark --split printed --tag printed $(ARGS)
 
 # --- Tests ------------------------------------------------------------------
-test: test-ocr test-filter test-match test-vision test-agents  ## Run all backend tests
+test: test-ocr test-filter test-match test-vision test-clinical test-agents  ## Run all backend tests
 
 test-ocr:  ## Benchmark scoring tests (no OCR, fast)
 	PYTHONPATH=. $(PY) backend/ocr/tests/test_benchmark.py
@@ -39,6 +39,9 @@ test-filter:  ## Medicine-line gate rules (no OCR, fast)
 
 test-vision:  ## Vision-LLM extraction path, no API key needed
 	PYTHONPATH=. $(PY) backend/ocr/tests/test_vision_provider.py
+
+test-clinical:  ## Pediatric safety chain (rules engine + risk grade, fast)
+	PYTHONPATH=. $(PY) backend/clinical_decision/tests/test_pediatric_rules.py
 
 test-agents:  ## Multi-agent layer tests
 	PYTHONPATH=. $(PY) backend/agents/tests/test_agents.py

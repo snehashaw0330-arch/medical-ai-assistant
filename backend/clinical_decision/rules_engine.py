@@ -289,8 +289,21 @@ def _age_rules(ctx: ClinicalContext, out: RuleFindings) -> None:
     if age is None:
         return
     if age < 2:
-        out.possible_risks.append(
-            "Infant patient — all doses must be weight-based and pediatric-verified."
+        # A red flag, not a mere "possible risk": the headline risk level is
+        # driven only by red flags + interaction severity (risk_analyzer.assess),
+        # and an infant on multiple medications must never grade as "low" with
+        # zero warnings — which is exactly what happened while this was a
+        # possible_risk (measured on the real 6-month-old prescription).
+        out.red_flags.append(
+            RedFlag(
+                title="Infant patient (age < 2 years)",
+                detail=(
+                    "All doses must be weight-based and pediatric-verified "
+                    "before dispensing."
+                ),
+                severity=RiskLevel.MODERATE,
+                category="age",
+            )
         )
     if age <= 12:
         for key, reason in PEDIATRIC_CAUTIONS.items():
