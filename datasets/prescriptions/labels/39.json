@@ -1,0 +1,15 @@
+{
+  "image": "39.jpg",
+  "image_path": "datasets/prescriptions/illegible_dataset/39.jpg",
+  "source": "historical",
+  "split": "handwritten",
+  "certain": false,
+  "_note": "UNREADABLE - reviewed and rejected, not a negative case. Letterhead resolves (Leonidas H. Berry, M.D., Internal Medicine and Gastro-Enterology, 412 East 47th Street, Chicago, Illinois; 'NON-REPETATUR'; Reg No. 5935) but the handwritten body is far below the resolution needed to read any drug name, and nothing legible survives scrutiny. IMPORTANT READING CONVENTION for anyone scripting over this directory: an empty `medicines` list means DIFFERENT things depending on `certain`. certain:true + empty = a genuine zero-drug page (19, 21, 27, 32, 35, 38) and is a real false-positive probe. certain:false + empty = this case, the page could not be read, and it is excluded from headline scores so it neither rewards nor punishes the pipeline. Do not treat the two alike. Needs a higher-resolution scan.",
+  "patient": {
+    "age": null,
+    "weight_kg": null,
+    "sex": null
+  },
+  "complaints": [],
+  "medicines": []
+}

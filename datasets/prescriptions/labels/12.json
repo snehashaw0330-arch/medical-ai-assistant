@@ -1,0 +1,32 @@
+{
+  "image": "12.jpg",
+  "image_path": "datasets/prescriptions/illegible_dataset/12.jpg",
+  "source": "real-handwritten",
+  "split": "handwritten",
+  "certain": true,
+  "_note": "German hospital medication chart in cursive - deliberately kept because the label set is otherwise almost entirely Indian, and a non-Indian page tests that the 248k Indian-brand index does not force foreign drug names into a wrong match. 'Trp/Trpf' is Tropfen (drops); 'fix' means fixed (scheduled) dosing; 'Reserven wie verordnet' (reserves as prescribed) and 'PCA' are orders, not drug names. Effortil is a plausible but not certain reading and is flagged. raw_text omitted deliberately - the cursive German is only partly legible. Needs verification by a second transcriber, ideally a German reader.",
+  "patient": {
+    "age": null,
+    "weight_kg": null,
+    "sex": null
+  },
+  "complaints": [],
+  "medicines": [
+    {
+      "name": "Novalgin",
+      "strength": null,
+      "form": "drops",
+      "frequency": "4 x 20 drops",
+      "duration": null,
+      "certain": true
+    },
+    {
+      "name": "Effortil",
+      "strength": null,
+      "form": "drops",
+      "frequency": "20 drops",
+      "duration": null,
+      "certain": false
+    }
+  ]
+}

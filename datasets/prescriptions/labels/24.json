@@ -1,0 +1,40 @@
+{
+  "image": "24.jpg",
+  "image_path": "datasets/prescriptions/illegible_dataset/24.jpg",
+  "source": "real-handwritten",
+  "split": "handwritten",
+  "certain": true,
+  "_note": "Dr. Raja Nag, Cardiology - post-MI note. Findings: recent ASMI (anteroseptal MI) with hypertension, ECG ASMI, Echo LVEF 45%, BP 127/77, pulse 74/min, Trop T advised. Three cardiac drugs, all real Indian brands. The page ends 'PTO' so more orders exist on the reverse, which is NOT in frame; the label describes the image, and the pipeline sees exactly this, so it is still certain:true. Clinically this is a strong drug-interaction probe: Deplatt A is dual antiplatelet (aspirin + clopidogrel) alongside a nitrate. raw_text omitted deliberately - large redaction blocks cover the letterhead and footer, and the sheet is creased through the drug lines.",
+  "patient": {
+    "age": null,
+    "weight_kg": null,
+    "sex": null
+  },
+  "complaints": ["recent ASMI", "hypertension", "LVEF 45%"],
+  "medicines": [
+    {
+      "name": "Deplatt A",
+      "strength": "150mg",
+      "form": "tablet",
+      "frequency": "morning",
+      "duration": null,
+      "certain": true
+    },
+    {
+      "name": "Aztor",
+      "strength": "80mg",
+      "form": "tablet",
+      "frequency": "daily",
+      "duration": null,
+      "certain": true
+    },
+    {
+      "name": "Nitrocontin",
+      "strength": "2.6mg",
+      "form": "tablet",
+      "frequency": null,
+      "duration": null,
+      "certain": true
+    }
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "image": "35.jpg",
+  "image_path": "datasets/prescriptions/illegible_dataset/35.jpg",
+  "source": "historical",
+  "split": "mixed",
+  "certain": true,
+  "_note": "NEGATIVE CASE - zero medicines, and not a medical document at all. A 1979 subscription RECEIPT: 'Received from R. Dowd the sum of Three dollars Fifty cents, being for Annual Sub 1978/8?', a little-theatre society, $3.50, with a DUTY STAMP box. It sits in a prescription dataset by mistake, which makes it an ideal control: the page has a date, a person's name, a printed form grid, a signature and a stamp box - all the structural cues of a prescription - and nothing remotely clinical. Anything returned here is a pure false positive arising from layout rather than content. raw_text omitted deliberately - low resolution and the society name is not legible.",
+  "patient": {
+    "age": null,
+    "weight_kg": null,
+    "sex": null
+  },
+  "complaints": [],
+  "medicines": []
+}

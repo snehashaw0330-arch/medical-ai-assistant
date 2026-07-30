@@ -1,0 +1,24 @@
+{
+  "image": "18.jpg",
+  "image_path": "datasets/prescriptions/illegible_dataset/18.jpg",
+  "source": "real-handwritten",
+  "split": "handwritten",
+  "certain": true,
+  "_note": "US script pad, patient Shorty Powell. Single order: Phenytoin Sodium Extended 100mg TID, quantity 90, refill PRN circled. 'DAW / LABEL' and 'Generic Substitution Permitted' are form controls, not drugs. Phenytoin is a narrow-therapeutic-index anticonvulsant, so this page is worth having: a strength or frequency error here is clinically serious. raw_text omitted deliberately - the year in the date is ambiguous (11/16/10 or 11/16/70) and on a page this short one wrong token distorts CER badly.",
+  "patient": {
+    "age": null,
+    "weight_kg": null,
+    "sex": null
+  },
+  "complaints": [],
+  "medicines": [
+    {
+      "name": "Phenytoin Sodium Extended",
+      "strength": "100mg",
+      "form": "capsule",
+      "frequency": "TID",
+      "duration": null,
+      "certain": true
+    }
+  ]
+}

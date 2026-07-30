@@ -1,0 +1,15 @@
+{
+  "image": "32.jpg",
+  "image_path": "datasets/prescriptions/illegible_dataset/32.jpg",
+  "source": "real-handwritten",
+  "split": "mixed",
+  "certain": true,
+  "_note": "NEGATIVE CASE - zero medicines. A genuine NHS FP10 prescription form (FP10SS0608, pharmacy stamp box, NHS number, 'Number of days' treatment N.B. Ensure dose is stated: 28', endorsements panel) filled in as a political joke: the prescription body reads 'WRITE OUT ONE THOUSAND TIMES. CAPITALISM IS WONDERFUL', signed by prescriber 'Milton Friedman' dated 14/11/11, dispenser 'Adam Smith Institute Edinburgh'. Patient details are internally contradictory (Age 2 1/2 with D.o.B 1990), part of the same joke. Valuable precisely because every piece of REAL prescription furniture is present - a duration of 28 days, an NHS number, a prescriber signature, a dispenser - with no drug anywhere. A pipeline that leans on form structure rather than the drug line will invent something here. raw_text omitted deliberately - block capitals over a dense pre-printed NHS grid.",
+  "patient": {
+    "age": "2.5 years",
+    "weight_kg": null,
+    "sex": null
+  },
+  "complaints": [],
+  "medicines": []
+}

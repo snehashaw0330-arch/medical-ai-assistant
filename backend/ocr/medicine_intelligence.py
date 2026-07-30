@@ -37,14 +37,49 @@ except Exception:  # noqa: BLE001
 
 
 # Words/strengths that add noise to matching but not identity.
+#
+# Keep this list exhaustive for the ABBREVIATIONS a prescriber actually writes,
+# not just the full words. A missing one does not merely weaken the match, it
+# corrupts it: "syp" was absent, so "Syp. Meftal-P" scored 42 against
+# "meftal-p suspension" (vs 100 for the bare name) and, worse, "Syp. Mucolite
+# LS" resolved to the WRONG product "s-mucolite syrup" because the stray "syp"
+# fused into the "s-" prefix. That was the only invented false positive on the
+# 25-label benchmark. Word boundaries keep these safe inside real brand names
+# ("hexigel" survives \bgel\b, "sypod" survives \bsyp\b).
 _FORM_WORDS = re.compile(
-    r"\b(tablet|tablets|tab|capsule|capsules|cap|syrup|injection|inj|"
-    r"suspension|susp|drops?|cream|ointment|gel|solution|sachet|"
+    r"\b(tablet|tablets|tab|tabs|capsule|capsules|cap|caps|"
+    r"syrup|syp|syr|suspension|susp|solution|soln|elixir|tonic|"
+    r"injection|inj|vial|ampoule|amp|infusion|"
+    r"drops?|cream|ointment|oint|gel|lotion|spray|inhaler|rotacap|respules|"
+    r"granules|powder|sachet|sachets|paint|gum|gargle|mouthwash|"
+    # NOT stripped: nasal / eye / ear / topical. Those are route descriptors
+    # that distinguish real products from each other ("X eye drops" vs "X ear
+    # drops"), and this same normalize() backs the benchmark's own name
+    # agreement rule — collapsing them would make the instrument accept a
+    # wrong-route match as exact, hiding a defect instead of measuring it.
     r"mg|mcg|ml|gm?|iu)\b",
     re.IGNORECASE,
 )
 _STRENGTH = re.compile(r"\b\d+(?:\.\d+)?\b")
 _NON_ALNUM = re.compile(r"[^a-z0-9 ]")
+
+#: A dose-form abbreviation written with a PERIOD at the start of a drug line
+#: ("T. Pan 40mg", "C. Amoxil", "Inj. Remdesivir"). The period is the whole
+#: signal and the reason this cannot be folded into _FORM_WORDS as a bare "t":
+#:
+#:   "T. Pan 40mg"  -> Tablet + Pan   -> must strip, or it matched the unrelated
+#:                                       product "t pan 40mg tablet"
+#:   "T-Minic"      -> the drug itself -> must NOT strip
+#:   "T Minic"      -> the drug itself -> must NOT strip
+#:
+#: Measured on 33.jpg: with the prefix left in, "T. Azee 500mg" and "T. Dolo 650"
+#: both went unresolved while the bare names resolved perfectly.
+_LEADING_FORM_ABBREV = re.compile(r"^\s*[a-z]{1,4}\.\s*(?=\S)", re.IGNORECASE)
+
+
+def strip_leading_form_abbrev(text: str) -> str:
+    """Drop a leading "T." / "Tab." / "Inj." style abbreviation from a drug line."""
+    return _LEADING_FORM_ABBREV.sub("", text or "", count=1)
 
 
 def normalize(name: str) -> str:
@@ -76,6 +111,21 @@ _DISTINCTIVE_NAME_LEN = 5
 #: substring matches — "asthakind tablet" ranks fifth for the query "arthakind
 #: drops" — and small enough that the extra scoring stays negligible.
 _CANDIDATE_POOL = 40
+
+
+#: Generic-label manufacturers. Their product names are "<maker> <molecule>
+#: <strength> <form>", so stripping the maker leaves the INN/molecule name. This
+#: is the only place the dataset carries generic names at all: its `name` and
+#: `substitute*` columns are brands, and `Chemical Class` is a drug *class*, not
+#: a molecule. Without this derivation a generically-written prescription can
+#: only match by accident — measured, that capped recall at 0.588 with the drug
+#: read correctly and then dropped as unresolved.
+_GENERIC_LABEL_PREFIXES = ("davaindia ", "genericart ", "stayhappi ", "generico ")
+
+#: Shortest derived generic name worth indexing. Below this a "molecule" is
+#: almost always a truncation artefact and behaves like the 2-3 character brands
+#: that _DISTINCTIVE_NAME_LEN exists to keep out.
+_MIN_GENERIC_LEN = 5
 
 
 def _identity_tokens(text: str) -> str:
@@ -166,6 +216,12 @@ class MedicineIndex:
         self._display: list[str] = df["name"].astype(str).tolist()
         self._clean: list[str] = [normalize(n) for n in self._display]
 
+        # Generic/molecule names derived from the generic-label makers, appended
+        # as first-class searchable entries. Each points back at a real row so
+        # details() still returns that molecule's uses and side effects.
+        self._generic_names: set[str] = set()
+        self._add_generic_names()
+
         # Map clean name -> first row index, for detail lookup.
         self._row_for_clean: dict[str, int] = {}
         for i, c in enumerate(self._clean):
@@ -176,6 +232,33 @@ class MedicineIndex:
         for i, c in enumerate(self._clean):
             key = c[0] if c else "#"
             self._buckets.setdefault(key, []).append(i)
+
+    def _add_generic_names(self) -> None:
+        """Append molecule names recovered from generic-label product names.
+
+        ``self._row_index_for`` keeps each derived name pointing at the real row
+        it came from, so a generic hit still carries real uses/side-effects. The
+        derived name is only added when the dataset does not already contain it
+        as a product in its own right.
+        """
+        existing = set(self._clean)
+        self._row_index_for: list[int] = list(range(len(self._display)))
+        derived: dict[str, int] = {}
+        for i, display in enumerate(self._display):
+            low = str(display).lower()
+            prefix = next((p for p in _GENERIC_LABEL_PREFIXES if low.startswith(p)), None)
+            if prefix is None:
+                continue
+            molecule = _identity_tokens(low[len(prefix):])
+            if len(molecule) < _MIN_GENERIC_LEN or molecule in existing:
+                continue
+            derived.setdefault(molecule, i)
+
+        for molecule, row in derived.items():
+            self._display.append(molecule)
+            self._clean.append(molecule)
+            self._row_index_for.append(row)
+            self._generic_names.add(molecule)
 
     # -- matching ----------------------------------------------------------
     def _candidate_indices(self, query_clean: str) -> list[int]:
@@ -189,7 +272,10 @@ class MedicineIndex:
         return bucket
 
     def search(self, query: str, limit: int = 3) -> list[MedicineMatch]:
-        q = normalize(query)
+        # Strip a leading "T." / "Inj." style abbreviation on the QUERY side only.
+        # Dataset names never carry one, and doing it here (before normalize)
+        # means the stripped form also reaches confirm_score below.
+        q = normalize(strip_leading_form_abbrev(query))
         if not q:
             return []
 
@@ -261,7 +347,10 @@ class MedicineIndex:
                 idx = self._display.index(display_name)
             except ValueError:
                 return {}
-        row = self.df.iloc[idx]
+        # Derived generic entries live past the end of the dataframe; each maps
+        # back to the real row it was recovered from, whose uses/side-effects are
+        # that molecule's. Indexing self.df directly would raise here.
+        row = self.df.iloc[self._row_index_for[idx]]
 
         def collect(prefix: str, count: int) -> list[str]:
             out = []
@@ -275,7 +364,10 @@ class MedicineIndex:
             return str(row[col]).strip() if col in row and pd.notna(row[col]) else ""
 
         return {
-            "name": str(row["name"]),
+            # A derived generic entry reports the molecule, not the generic-label
+            # product it was recovered from ("azithromycin", not "davaindia
+            # azithromycin 500mg tablet") — the molecule is what was prescribed.
+            "name": display_name if clean in self._generic_names else str(row["name"]),
             "uses": collect("use", 5),
             "side_effects": collect("sideEffect", 10),
             "substitutes": collect("substitute", 5),

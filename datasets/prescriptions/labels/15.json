@@ -1,0 +1,24 @@
+{
+  "image": "15.jpg",
+  "image_path": "datasets/prescriptions/illegible_dataset/15.jpg",
+  "source": "real-handwritten",
+  "split": "handwritten",
+  "certain": true,
+  "_note": "Doctors Urgent Care walk-in clinic, St. Petersburg FL, dated 3-10-06, patient Todd Brazys. US script pad with a DEA number - a controlled-substance page, which is exactly the case where a wrong drug name matters most. The drug name reads clearly as Methadone; the STRENGTH is recorded as written ('40mg') per rule 1 even though 40mg TID is a very high dose, and is flagged here rather than silently corrected. 'i TID prn pain' = one tablet three times daily as needed for pain; '# 90' is the dispensed quantity. raw_text omitted deliberately - the prescriber block along the bottom edge is cut off.",
+  "patient": {
+    "age": null,
+    "weight_kg": null,
+    "sex": null
+  },
+  "complaints": ["pain"],
+  "medicines": [
+    {
+      "name": "Methadone",
+      "strength": "40mg",
+      "form": "tablet",
+      "frequency": "TID PRN",
+      "duration": null,
+      "certain": true
+    }
+  ]
+}

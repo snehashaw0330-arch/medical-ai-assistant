@@ -1,0 +1,32 @@
+{
+  "image": "29.jpg",
+  "image_path": "datasets/prescriptions/illegible_dataset/29.jpg",
+  "source": "sample-form",
+  "split": "mixed",
+  "certain": true,
+  "_note": "DD Form 1289 'DOD Prescription' - a US military compounding form, evidently a training/sample specimen (patient 'John R. Doe, HM3, USN' aboard 'U.S.S. Neverforgotten', signed Jack R. Frost, LCDR MD USNR, dated 23 Jan 99). Structured in classical prescription parts: Inscription (Tr. Belladonna 15 ml, Amphogel qs ad 120 ml), Subscription (M & Ft Solution = mix and make a solution), Signa (5ml TID a.c. = before meals). Both ingredients are recorded as medicines: unlike the cocoa-butter base in 25.jpg, Amphogel (aluminium hydroxide) is itself an active antacid even though it also makes up the volume. Split 'mixed' - the printed form furniture (MFGR, LOT NO, EXP DATE, Superscription/Inscription/Subscription/Signa labels) dominates the page and is exactly the kind of text that must not be read as drugs. raw_text omitted deliberately - the dense printed form labels make a faithful full transcription unreliable.",
+  "patient": {
+    "age": null,
+    "weight_kg": null,
+    "sex": null
+  },
+  "complaints": [],
+  "medicines": [
+    {
+      "name": "Belladonna",
+      "strength": "15 ml",
+      "form": "tincture",
+      "frequency": "TID before meals",
+      "duration": null,
+      "certain": true
+    },
+    {
+      "name": "Amphogel",
+      "strength": "120 ml",
+      "form": "solution",
+      "frequency": "TID before meals",
+      "duration": null,
+      "certain": true
+    }
+  ]
+}

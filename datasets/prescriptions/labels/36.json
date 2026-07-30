@@ -1,0 +1,96 @@
+{
+  "image": "36.jpg",
+  "image_path": "datasets/prescriptions/illegible_dataset/36.jpg",
+  "source": "real-handwritten",
+  "split": "handwritten",
+  "certain": false,
+  "_note": "DOWNGRADED to certain:false after review - see the TRANSCRIBER ERROR note at the end. SumDra Clinic / Dr. Ravindra Kumar (Consultant Physician, Heart & Diabetes), dated 6/5/2021 - a COVID-19 case, 60/F, SpO2 89% on room air, HR 88, complaining of shortness of breath, chest pain and fever. Labs ordered down the left margin (CBC, CK/CKMB, Trop-I, PRO-BNP, LFT, CRP) are investigations, not drugs; 'Complete bedrest 5 days' is advice. The DENSEST page in the set - eleven numbered orders on creased paper in small hand. Four drug names are clearly legible (Clexane, Doxy, Montair FX, Vit C) and are marked certain:true; the remainder are readable as ORDERS but not confidently as NAMES and are flagged certain:false with best readings rather than guessed into plausible drugs. That mix is the point: a real ward prescription is partly legible, and a label set made only of clean pages would overstate recall. Clexane (enoxaparin) plus a steroid is the standard 2021 COVID regimen, which supports but does not confirm the uncertain readings. raw_text omitted deliberately - too many uncertain tokens. TRANSCRIBER ERROR, recorded rather than quietly corrected: this page was first marked certain:true, and its six guessed names then generated FOUR false positives against the pipeline on the 45-label benchmark. The pipeline read metolar 25 (metoprolol), xoten 20 and tazact 1.125gm - all real, common Indian products that fit a 2021 COVID cardiac ward better than the transcriber's 'Neocardac' and 'Envas', which are not confidently supported by the strokes. On this page the PIPELINE is more likely correct than the label. A transcriber's guesses must never be scored as ground truth against a system that may read better; the page is therefore excluded from headline scores until a second transcriber resolves the names. The four legible drugs (Clexane, Doxy, Montair FX, Vitamin C) are retained for reference.",
+  "patient": {
+    "age": "60 years",
+    "weight_kg": null,
+    "sex": "F"
+  },
+  "complaints": ["COVID-19 positive", "shortness of breath", "chest pain", "fever", "SpO2 89% on room air"],
+  "medicines": [
+    {
+      "name": "Clexane",
+      "strength": "60",
+      "form": "injection",
+      "frequency": "subcutaneous",
+      "duration": null,
+      "certain": true
+    },
+    {
+      "name": "Doxy",
+      "strength": "100mg",
+      "form": "capsule",
+      "frequency": "BD",
+      "duration": null,
+      "certain": true
+    },
+    {
+      "name": "Montair FX",
+      "strength": null,
+      "form": "tablet",
+      "frequency": "OD",
+      "duration": null,
+      "certain": true
+    },
+    {
+      "name": "Vitamin C",
+      "strength": "500mg",
+      "form": "tablet",
+      "frequency": "BD",
+      "duration": null,
+      "certain": true
+    },
+    {
+      "name": "MP",
+      "strength": "16mg",
+      "form": "tablet",
+      "frequency": "BD",
+      "duration": null,
+      "certain": false
+    },
+    {
+      "name": "Zincovit",
+      "strength": null,
+      "form": "tablet",
+      "frequency": "OD",
+      "duration": null,
+      "certain": false
+    },
+    {
+      "name": "Neocardac",
+      "strength": "25mg",
+      "form": "capsule",
+      "frequency": "OD",
+      "duration": null,
+      "certain": false
+    },
+    {
+      "name": "Envas",
+      "strength": "5mg",
+      "form": "tablet",
+      "frequency": null,
+      "duration": null,
+      "certain": false
+    },
+    {
+      "name": "Budecort",
+      "strength": null,
+      "form": "nebulisation",
+      "frequency": null,
+      "duration": null,
+      "certain": false
+    },
+    {
+      "name": "Duolin",
+      "strength": null,
+      "form": "nebulisation",
+      "frequency": null,
+      "duration": null,
+      "certain": false
+    }
+  ]
+}

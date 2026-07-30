@@ -1,0 +1,48 @@
+{
+  "image": "22.jpg",
+  "image_path": "datasets/prescriptions/illegible_dataset/22.jpg",
+  "source": "historical",
+  "split": "handwritten",
+  "certain": false,
+  "_note": "Antique compounding prescription - William Lewis Towns, M.D., 512 c. Main St., Columbus, Ohio, dated 7/25/28 (1928), for Bertha Greenberg. Marked certain:false at TOP LEVEL and excluded from headline scores because the scan resolution genuinely does not support a confident transcription, NOT to flatter the metrics: the apothecary quantities (scruple/dram symbols, 'aa 3 iv', 'M.' for misce) are unresolvable at this size and each drug name is a moderate-confidence reading. Sig reads 'Paint as directed, morning and evening'. This is the third antique page in the set alongside the 1921 compounding Rx and the 1970s pharmacy card; those supply the current MISSED list (Stilbestrol, Cocaine Hydrochlor, Adrenalin Chlor) because the drugs are absent from a modern Indian formulary by design, not by defect. Needs verification by a second transcriber with a higher-resolution scan.",
+  "patient": {
+    "age": null,
+    "weight_kg": null,
+    "sex": null
+  },
+  "complaints": [],
+  "medicines": [
+    {
+      "name": "Iodine",
+      "strength": null,
+      "form": null,
+      "frequency": "morning and evening",
+      "duration": null,
+      "certain": false
+    },
+    {
+      "name": "Iris",
+      "strength": null,
+      "form": null,
+      "frequency": "morning and evening",
+      "duration": null,
+      "certain": false
+    },
+    {
+      "name": "Belladonna",
+      "strength": null,
+      "form": null,
+      "frequency": "morning and evening",
+      "duration": null,
+      "certain": false
+    },
+    {
+      "name": "Aconite",
+      "strength": null,
+      "form": null,
+      "frequency": "morning and evening",
+      "duration": null,
+      "certain": false
+    }
+  ]
+}

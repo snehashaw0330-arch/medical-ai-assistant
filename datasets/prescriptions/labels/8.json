@@ -1,0 +1,32 @@
+{
+  "image": "8.jpg",
+  "image_path": "datasets/prescriptions/illegible_dataset/8.jpg",
+  "source": "real-handwritten",
+  "split": "handwritten",
+  "certain": true,
+  "_note": "Dr. Sudip Roy letterhead (General & Laparoscopic Surgery), dated 22/4/22, signed Dr. Goutham. Clear, well-spaced handwriting - one of the easier real pages in the set. Dosing written as slot notation with meal timing: Sompraz 1-0-0 BF (before food), Normaxin-RT 0-0-1 RF (after food); both x 1 month. Meal timing is not a schema field so it is recorded here only. 'Neurology Consultation' and 'Glycemic Control' are plan items, not drugs. The complaint word read as 'Paresthesias' is not fully legible but no medicine depends on it. raw_text omitted deliberately - a contact block is redacted out of the page and one complaint word is uncertain. Needs verification by a second transcriber.",
+  "patient": {
+    "age": null,
+    "weight_kg": null,
+    "sex": null
+  },
+  "complaints": ["known case of functional dyspepsia", "persistent symptoms", "burning sensation in the back"],
+  "medicines": [
+    {
+      "name": "Sompraz",
+      "strength": "40mg",
+      "form": "tablet",
+      "frequency": "1-0-0",
+      "duration": "1 month",
+      "certain": true
+    },
+    {
+      "name": "Normaxin-RT",
+      "strength": null,
+      "form": "tablet",
+      "frequency": "0-0-1",
+      "duration": "1 month",
+      "certain": true
+    }
+  ]
+}

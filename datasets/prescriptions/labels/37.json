@@ -1,0 +1,32 @@
+{
+  "image": "37.jpg",
+  "image_path": "datasets/prescriptions/illegible_dataset/37.jpg",
+  "source": "historical",
+  "split": "handwritten",
+  "certain": true,
+  "_note": "Antique US prescription - Dr. W. P. Baker, Physician and Surgeon, Keefe Building, Hillman City, Seattle; footer 'TAKE THIS TO CAMERON'S DRUG STORE'. Unlike the other historical pages (22, 25) this one is in clear copperplate and IS confidently readable, so it is certain:true. Indication 'Sick headache' (migraine) is written on the Rx line. Formula: Ext. Cannabis Ind. gr 1/4 and croton chloral gr XV, 'ft caps no XVI' (make 16 capsules), Sig: give one and repeat in 1/2 hour. Both drugs are genuine early-1900s materia medica that a modern Indian formulary correctly does not stock, so they belong on the MISSED list by design - the same role Stilbestrol and Cocaine Hydrochlor play. Strengths recorded in apothecary grains as written. raw_text omitted deliberately - the apothecary symbols have no faithful plain-text form.",
+  "patient": {
+    "age": null,
+    "weight_kg": null,
+    "sex": null
+  },
+  "complaints": ["sick headache"],
+  "medicines": [
+    {
+      "name": "Extract Cannabis Indica",
+      "strength": "gr 1/4",
+      "form": "capsule",
+      "frequency": "one, repeat in 1/2 hour",
+      "duration": null,
+      "certain": true
+    },
+    {
+      "name": "Croton Chloral",
+      "strength": "gr XV",
+      "form": "capsule",
+      "frequency": "one, repeat in 1/2 hour",
+      "duration": null,
+      "certain": true
+    }
+  ]
+}

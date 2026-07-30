@@ -119,6 +119,25 @@ def test_ranking_prefers_identity_over_substring():
     )
 
 
+def test_leading_dose_form_abbreviation_is_stripped():
+    """"T." means Tablet and must go; "T-Minic" is the drug and must stay.
+
+    The period is the whole signal, which is why this cannot be a bare "t" in
+    _FORM_WORDS. Measured on 33.jpg: with the prefix left in, "T. Azee 500mg"
+    and "T. Dolo 650" went unresolved and "T. Pan 40mg" matched the unrelated
+    product "t pan 40mg tablet".
+    """
+    from backend.ocr.medicine_intelligence import strip_leading_form_abbrev as strip
+
+    assert strip("T. Pan 40mg") == "Pan 40mg"
+    assert strip("Cap. Phexin 500mg") == "Phexin 500mg"
+    assert strip("Inj. Remdesivir") == "Remdesivir"
+    # A name that merely begins with a letter must survive untouched.
+    assert strip("T-Minic drops") == "T-Minic drops"
+    assert strip("T Minic") == "T Minic"
+    assert strip("Pan 40mg") == "Pan 40mg"
+
+
 def _run() -> int:
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
     failed = 0

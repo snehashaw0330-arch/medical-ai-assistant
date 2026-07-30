@@ -1,0 +1,32 @@
+{
+  "image": "23.jpg",
+  "image_path": "datasets/prescriptions/illegible_dataset/23.jpg",
+  "source": "real-handwritten",
+  "split": "handwritten",
+  "certain": true,
+  "_note": "Clinic note stamped 24 MAY 2017, signed Aditya; '36' circled in the margin is likely the patient age but is not labelled as such on the page, so it is not recorded as age. Valuable because BOTH drugs are written as GENERIC names rather than brands - the case the 248k brand-only index handles worst, and the reason the derived generic-name entries exist. raw_text omitted deliberately - the complaint line uses an up-arrow glyph ('increased on food intake') that has no faithful plain-text rendering, and on a page this short one ambiguous token distorts CER.",
+  "patient": {
+    "age": null,
+    "weight_kg": null,
+    "sex": null
+  },
+  "complaints": ["gastritis x 1 week", "pain abdomen", "increased on food intake", "headache x 3 days"],
+  "medicines": [
+    {
+      "name": "Ranitidine",
+      "strength": "150mg",
+      "form": "tablet",
+      "frequency": "BD",
+      "duration": "5 days",
+      "certain": true
+    },
+    {
+      "name": "Paracetamol",
+      "strength": "500mg",
+      "form": "tablet",
+      "frequency": "TDS",
+      "duration": "5 days",
+      "certain": true
+    }
+  ]
+}

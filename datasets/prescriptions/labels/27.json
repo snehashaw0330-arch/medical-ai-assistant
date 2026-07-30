@@ -1,0 +1,15 @@
+{
+  "image": "27.jpg",
+  "image_path": "datasets/prescriptions/illegible_dataset/27.jpg",
+  "source": "real-handwritten",
+  "split": "mixed",
+  "certain": true,
+  "_note": "NEGATIVE CASE - zero medicines, and the single strongest false-positive probe in the set. This is a PERSONAL LETTER (from 'Moineddin' to 'Mansur', about Sufi practice and dialysis) written on Pfizer drug-rep stationery. The page prints 'NEW MINIPRESS Capsules 1mg., 2mg., 5mg. (prazosin HCl)' in large type at the top, plus 'an artistic rendition of the molecular structure of prazosin' and a Pfizer Laboratories footer telling the reader to review DOSAGE AND ADMINISTRATION before prescribing. A real drug name, three real strengths and dosing vocabulary are all present as ADVERTISING - and nothing whatsoever is prescribed. Any pipeline that returns Minipress or prazosin here has mistaken letterhead for an order, which is exactly the failure the two-gate line filter exists to prevent. Split 'mixed' because the printed drug branding dominates the page as much as the handwriting. raw_text omitted deliberately - the letter is long cursive prose and this label's value is the empty medicine list, not CER.",
+  "patient": {
+    "age": null,
+    "weight_kg": null,
+    "sex": null
+  },
+  "complaints": [],
+  "medicines": []
+}

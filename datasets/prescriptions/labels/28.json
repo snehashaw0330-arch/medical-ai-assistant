@@ -1,0 +1,24 @@
+{
+  "image": "28.jpg",
+  "image_path": "datasets/prescriptions/illegible_dataset/28.jpg",
+  "source": "real-handwritten",
+  "split": "handwritten",
+  "certain": true,
+  "_note": "Nanavati Super Speciality Hospital, Mumbai - printed patient sticker (IP 21/4643, UHID 896539, 73 yrs/Male, EICU, Dr. Amol Anandrao Patil, ENT, DOA 16/05/2021) with a single handwritten order dated 16/5/2021. Liposomal Amphotericin B, 50mg vials, 6 vials/day totalling 300mg/day - an ENT/EICU mucormycosis ('black fungus') regimen from the 2021 COVID wave. Recorded as ONE medicine with the per-vial strength; the 6 vials/day and 300mg total are the frequency and are noted here. Worth having because the dose is expressed as VIALS rather than a simple strength+frequency, and because amphotericin B is nephrotoxic and narrow-margin, so a dosing misread matters. raw_text omitted deliberately - the IP/UHID digits on the sticker are too small to transcribe with confidence.",
+  "patient": {
+    "age": "73 years",
+    "weight_kg": null,
+    "sex": "M"
+  },
+  "complaints": [],
+  "medicines": [
+    {
+      "name": "Liposomal Amphotericin B",
+      "strength": "50mg",
+      "form": "injection",
+      "frequency": "6 vials/day (300mg)",
+      "duration": null,
+      "certain": true
+    }
+  ]
+}

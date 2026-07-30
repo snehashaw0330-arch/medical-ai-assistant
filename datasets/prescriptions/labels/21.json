@@ -1,0 +1,15 @@
+{
+  "image": "21.jpg",
+  "image_path": "datasets/prescriptions/illegible_dataset/21.jpg",
+  "source": "real-handwritten",
+  "split": "handwritten",
+  "certain": true,
+  "_note": "NEGATIVE CASE - zero medicines. Closing half of a clinical letter from Dr. Naveen Polavarapu, Apollo Hospitals, Jubilee Hills, Hyderabad, justifying a further 8-10 day hospital stay for severe sepsis with MODS (likely liver abscess with aspiration pneumonia). No drug is prescribed anywhere in frame. The image is cropped mid-sentence at the top, but it is still marked certain:true because the label describes THE IMAGE, not the original document - the pipeline sees exactly what this transcriber sees, so scoring it on visible content is fair. Clinically dense prose full of drug-adjacent vocabulary (sepsis, abscess, pneumonia) makes this a strong false-positive probe. raw_text omitted deliberately - the top of the page is cut off mid-sentence.",
+  "patient": {
+    "age": null,
+    "weight_kg": null,
+    "sex": null
+  },
+  "complaints": ["severe sepsis with MODS", "likely liver abscess with aspiration pneumonia"],
+  "medicines": []
+}

@@ -1,0 +1,40 @@
+{
+  "image": "5.jpg",
+  "image_path": "datasets/prescriptions/illegible_dataset/5.jpg",
+  "source": "real-handwritten",
+  "split": "handwritten",
+  "certain": true,
+  "_note": "Pediatric notepad page (Dr. Sonia, pediatrician - card partly visible at right edge). Left margin records weight 14.9 kg and height 98 cm. 'Temp chart' is an instruction, not a drug. Syrup name read as 'Ephedrex' is not confidently legible and is flagged certain:false; it appears twice on the page and is counted once. raw_text omitted deliberately - the right edge is cropped, so a full-page transcription would be a guess and would corrupt CER/WER. Needs verification by a second transcriber.",
+  "patient": {
+    "age": null,
+    "weight_kg": 14.9,
+    "sex": null
+  },
+  "complaints": [],
+  "medicines": [
+    {
+      "name": "Crocin DS",
+      "strength": null,
+      "form": "syrup",
+      "frequency": "SOS (4 hourly)",
+      "duration": null,
+      "certain": true
+    },
+    {
+      "name": "Meftal-P",
+      "strength": null,
+      "form": "syrup",
+      "frequency": "SOS (6 hourly)",
+      "duration": null,
+      "certain": true
+    },
+    {
+      "name": "Ephedrex",
+      "strength": null,
+      "form": "syrup",
+      "frequency": "twice daily (0-0)",
+      "duration": null,
+      "certain": false
+    }
+  ]
+}

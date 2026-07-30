@@ -1,0 +1,32 @@
+{
+  "image": "14.jpg",
+  "image_path": "datasets/prescriptions/illegible_dataset/14.jpg",
+  "source": "real-handwritten",
+  "split": "handwritten",
+  "certain": true,
+  "_note": "YourGP / Dr. Ajay Sahdev, New Delhi, dated 24/4/21. Covid treatment note in clear block capitals - an easy page, useful as a control against the hard ones. Both drugs are two-step regimens recorded as ONE medicine each so drug identity is not double-counted: Remdec 200mg stat then 100mg OD x 4 days; Actemra 400mg OD x 2 doses with a 2-day gap. 'REMDEC' is an Indian remdesivir brand and is written as such - recorded verbatim per rule 1 rather than normalised to remdesivir. raw_text omitted deliberately - the letterhead credentials block is too blurred to transcribe reliably.",
+  "patient": {
+    "age": "62 years",
+    "weight_kg": null,
+    "sex": "M"
+  },
+  "complaints": ["COVID positive"],
+  "medicines": [
+    {
+      "name": "Remdec",
+      "strength": "200mg",
+      "form": "injection",
+      "frequency": "OD",
+      "duration": "4 days",
+      "certain": true
+    },
+    {
+      "name": "Actemra",
+      "strength": "400mg",
+      "form": "injection",
+      "frequency": "OD",
+      "duration": "2 doses with a gap of 2 days",
+      "certain": true
+    }
+  ]
+}

@@ -1,0 +1,25 @@
+{
+  "image": "31.jpg",
+  "image_path": "datasets/prescriptions/illegible_dataset/31.jpg",
+  "source": "sample-form",
+  "split": "printed",
+  "certain": true,
+  "raw_text": "Dr. Alfred Sauls 151212 S. High Rd., Chicago, IL 23875 954-555-1300 Name: Alan Johnson 92 Ibis Lane Rx: Erythromycin ethylsuccinate 400 mg/5 mL Disp: 100 mL Sig: tsp. q.i.d, until all medication is taken. Dr. Alfred Sauls Dispense as written May substitute",
+  "_note": "Rendered sample US prescription (script typeface, not real handwriting) - clean and fully visible, so raw_text is included for CER/WER coverage. The drug is written as a GENERIC molecule with a salt form ('Erythromycin ethylsuccinate'), which is the case the brand-only index handles worst and the derived generic entries are meant to catch. Note the Sig has a BLANK before 'tsp.' - the dose quantity is genuinely missing from the form, a real prescribing-safety defect (an incomplete order) rather than a transcription failure, so no strength is invented for it.",
+  "patient": {
+    "age": null,
+    "weight_kg": null,
+    "sex": null
+  },
+  "complaints": [],
+  "medicines": [
+    {
+      "name": "Erythromycin ethylsuccinate",
+      "strength": "400 mg/5 mL",
+      "form": "solution",
+      "frequency": "QID",
+      "duration": null,
+      "certain": true
+    }
+  ]
+}

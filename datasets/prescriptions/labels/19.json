@@ -1,0 +1,15 @@
+{
+  "image": "19.jpg",
+  "image_path": "datasets/prescriptions/illegible_dataset/19.jpg",
+  "source": "real-handwritten",
+  "split": "handwritten",
+  "certain": true,
+  "_note": "NEGATIVE CASE - zero medicines. Written on a prescription pad (it carries the Rx symbol and Patient/Age/Sex/Date fields) but the content is a medical certificate dated 4/26/2021: 'This is to certify that patient ... is under my care due to multiple physical injury 2 degrees to motorcycle accident (4/23/2021). Patient needs medical clearance/rest.' No drug is prescribed. Pages like this are the most diagnostic in the set: any medicine returned here is a pure false positive with no partial credit to hide behind - the same role 10.jpg plays. The patient's name is blurred out in the image. raw_text omitted deliberately - the cursive is only partly legible and the name is redacted.",
+  "patient": {
+    "age": null,
+    "weight_kg": null,
+    "sex": null
+  },
+  "complaints": ["multiple physical injury secondary to motorcycle accident"],
+  "medicines": []
+}

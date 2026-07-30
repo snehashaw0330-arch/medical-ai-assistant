@@ -1,0 +1,32 @@
+{
+  "image": "4.jpg",
+  "image_path": "datasets/prescriptions/illegible_dataset/4.jpg",
+  "source": "real-handwritten",
+  "split": "mixed",
+  "certain": true,
+  "_note": "Dr. Baba Saheb Ambedkar Hospital, Rohini - Emergency Registration Card. Dark, low-contrast photo of a pre-printed form with handwritten clinical entries, hence split 'mixed'. TWO deliberate calls: (1) the first injection name is genuinely ambiguous - best reading 'Diclofenac', but 'Dicyclomine' is equally plausible from the strokes and both fit abdominal pain, so it is certain:false. The pipeline has read this same word as Diclofenac, Dicyclomine AND Dilaudid across runs at temperature 0; this label exists to hold that page honest, not to declare a winner. (2) Both drugs are INJECTIONS given stat - the pipeline has resolved the second to 'pantop 40 tablet', which is a form error worth scoring. Also note the history line reads 'No H/O T2DM / HTN' with 'K/C/O -' left blank, i.e. NO known diabetes/hypertension; a reading of 'Known case of T2DM / HTN' inverts the meaning. raw_text omitted deliberately - too much of the handwriting is ambiguous for a transcription that could score CER/WER honestly. Needs verification by a second transcriber.",
+  "patient": {
+    "age": "52 years",
+    "weight_kg": null,
+    "sex": "F"
+  },
+  "complaints": ["pain in abdomen", "vomiting"],
+  "medicines": [
+    {
+      "name": "Diclofenac",
+      "strength": "25mg",
+      "form": "injection",
+      "frequency": "stat",
+      "duration": null,
+      "certain": false
+    },
+    {
+      "name": "Pantop",
+      "strength": "40mg",
+      "form": "injection",
+      "frequency": "stat",
+      "duration": null,
+      "certain": true
+    }
+  ]
+}

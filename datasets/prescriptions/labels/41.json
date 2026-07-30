@@ -1,0 +1,25 @@
+{
+  "image": "41.jpg",
+  "image_path": "datasets/prescriptions/illegible_dataset/41.jpg",
+  "source": "sample-form",
+  "split": "handwritten",
+  "certain": true,
+  "raw_text": "Dr B. Who Farmstreet 12 Kirkville tel. 3876 R/ date 1 Nov 1994 Amoxicillin 50 mg/ml susp. da 100 ml S. 3dd 5 ml. Finish course (add 5 ml spoon) B. Who Ms/Mr Patient 29 address: age: 5 years",
+  "_note": "Same 'Dr B. Who / Farmstreet 12 / Kirkville' teaching template as the already-labelled 1.jpg, so raw_text follows that file's transcription style for consistency. Dutch prescription conventions: 'R/' for recipe, 'da 100 ml' (give 100 ml), 'S. 3dd 5 ml' (signa, three times daily 5 ml). NOTE FOR THE DATASET: this image is byte-identical to 70.jpg - label only one of the pair or the page is double-counted in every metric. The other known duplicate pairs are 83/114 and 61/94. Paediatric patient (age 5 years) on a weight-appropriate amoxicillin suspension; 'Finish course' is an instruction, not a drug.",
+  "patient": {
+    "age": "5 years",
+    "weight_kg": null,
+    "sex": null
+  },
+  "complaints": [],
+  "medicines": [
+    {
+      "name": "Amoxicillin",
+      "strength": "50 mg/ml",
+      "form": "suspension",
+      "frequency": "3dd 5 ml",
+      "duration": null,
+      "certain": true
+    }
+  ]
+}

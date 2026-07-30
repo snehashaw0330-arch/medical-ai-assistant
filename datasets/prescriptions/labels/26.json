@@ -1,0 +1,40 @@
+{
+  "image": "26.jpg",
+  "image_path": "datasets/prescriptions/illegible_dataset/26.jpg",
+  "source": "real-handwritten",
+  "split": "handwritten",
+  "certain": true,
+  "_note": "Medical Center Hospital, Odessa, Texas, patient Vasquez Ramon, dated 6/23/95, marked 'Dispense as written'. Three orders. The first drug name is NOT confidently legible - best reading 'Zendil', but the 20mg PO Q6h schedule does not fit any brand that reading suggests, so it is flagged certain:false rather than guessed into a plausible cardiac drug (rule 1: transcribe what is written, not what makes sense). Ferrous Sulfate and Humulin N are clear. Humulin N is insulin dosed in UNITS subcutaneously, not mg - a dosing-unit case worth having, since a units/mg confusion is a classic and dangerous extraction error. raw_text omitted deliberately - the address line is an unreadable scrawl and the first drug name is uncertain.",
+  "patient": {
+    "age": null,
+    "weight_kg": null,
+    "sex": null
+  },
+  "complaints": [],
+  "medicines": [
+    {
+      "name": "Zendil",
+      "strength": "20mg",
+      "form": "tablet",
+      "frequency": "Q6H",
+      "duration": null,
+      "certain": false
+    },
+    {
+      "name": "Ferrous Sulfate",
+      "strength": "300mg",
+      "form": "tablet",
+      "frequency": "TID with meals",
+      "duration": null,
+      "certain": true
+    },
+    {
+      "name": "Humulin N",
+      "strength": "30 units",
+      "form": "injection",
+      "frequency": "Q AM subcutaneous",
+      "duration": null,
+      "certain": true
+    }
+  ]
+}

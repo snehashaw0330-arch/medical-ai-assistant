@@ -1,0 +1,40 @@
+{
+  "image": "11.jpg",
+  "image_path": "datasets/prescriptions/illegible_dataset/11.jpg",
+  "source": "real-handwritten",
+  "split": "handwritten",
+  "certain": true,
+  "_note": "Dr. Ashok Gupta (pediatrician), Modinagar - bilingual Hindi/English letterhead, dated 04 NOV 2019, patient 3 yr F. Complaint 'fever x 1d, ARI'. A second visit dated 07 NOV 2019 lower on the page reads 'Tt as adv. x 5d' (treatment as advised) and prescribes nothing new, so it adds no medicines. 'Review' is an instruction. raw_text omitted deliberately - the letterhead is bilingual and the top edge is cropped, so a full transcription would be a guess. Needs verification by a second transcriber.",
+  "patient": {
+    "age": "3 years",
+    "weight_kg": null,
+    "sex": "F"
+  },
+  "complaints": ["fever x 1 day", "ARI"],
+  "medicines": [
+    {
+      "name": "Sumol DS",
+      "strength": null,
+      "form": "syrup",
+      "frequency": "4 hourly SOS",
+      "duration": "3 days",
+      "certain": true
+    },
+    {
+      "name": "Mucolite LS",
+      "strength": null,
+      "form": "syrup",
+      "frequency": "TDS",
+      "duration": "3 days",
+      "certain": true
+    },
+    {
+      "name": "Meftal-P",
+      "strength": null,
+      "form": "tablet",
+      "frequency": "SOS",
+      "duration": "3 days",
+      "certain": true
+    }
+  ]
+}

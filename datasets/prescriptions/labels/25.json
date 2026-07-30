@@ -1,0 +1,32 @@
+{
+  "image": "25.jpg",
+  "image_path": "datasets/prescriptions/illegible_dataset/25.jpg",
+  "source": "historical",
+  "split": "handwritten",
+  "certain": false,
+  "_note": "Antique compounding prescription - Walton Physicians Supply Co., 240 East State Street, Columbus, Ohio, for L.E. Stegner, signed W. E. Towns M.D., Reg. No. 84. A suppository formula written in Latin apothecary notation (Pulv. Opii gr XXIV, Ex Belladonnae gr VI, Ol. Theobroma q.s. ad, 'ft suppositoria No. XXIV', Sig: one as directed morning and evening). Marked certain:false at TOP LEVEL because the scan resolution plus Latin abbreviation genuinely prevent a confident reading, not to spare the metrics. DELIBERATE SCHEMA CALL: 'Ol. Theobroma' (cocoa butter) is the suppository BASE, an excipient rather than a prescribed active, so it is not listed as a medicine - listing it would score the pipeline as missing a drug for not naming a vehicle. The fourth line ('Lithiasis'?) is unresolved and omitted rather than guessed. Fourth historical page in the set; these supply most of the MISSED list by design, since the drugs predate a modern Indian formulary.",
+  "patient": {
+    "age": null,
+    "weight_kg": null,
+    "sex": null
+  },
+  "complaints": [],
+  "medicines": [
+    {
+      "name": "Opium",
+      "strength": "gr XXIV",
+      "form": "suppository",
+      "frequency": "morning and evening",
+      "duration": null,
+      "certain": false
+    },
+    {
+      "name": "Belladonna",
+      "strength": "gr VI",
+      "form": "suppository",
+      "frequency": "morning and evening",
+      "duration": null,
+      "certain": false
+    }
+  ]
+}

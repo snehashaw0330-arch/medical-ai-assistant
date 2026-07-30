@@ -1,0 +1,24 @@
+{
+  "image": "40.jpg",
+  "image_path": "datasets/prescriptions/illegible_dataset/40.jpg",
+  "source": "real-handwritten",
+  "split": "handwritten",
+  "certain": true,
+  "_note": "Yashoda Hospitals, Somajiguda, Hyderabad - Dr. Hari Kishan Boorugu (MD, DNB, Consultant Physician & Diabetologist, Reg No 79692), dated 13/5/21. Patient Ramachandra Rao, 60y, noted as currently an in-patient. Second mucormycosis case in the set alongside 28.jpg, from the same 2021 COVID wave. NAMING CALL: the page carries THREE names for ONE product - the brand 'PHOSOME', the molecule spelled out in parentheses '(LIPOSOMAL AMPHOTERICIN)', and the alternative brand 'AMBISOME' written beneath. It is recorded ONCE, under the molecule the page states explicitly, matching the choice made in 28.jpg. A scorecard reviewer should read a prediction of 'Phosome' or 'Ambisome' here as correct even though the harness will score it as a miss plus a false positive - the harness cannot know two brands denote one product, and this note is the record of that. Dosing: 300mg IV in 5% dextrose over 5 hours, one dose daily for 15 days.",
+  "patient": {
+    "age": "60 years",
+    "weight_kg": null,
+    "sex": "M"
+  },
+  "complaints": [],
+  "medicines": [
+    {
+      "name": "Liposomal Amphotericin B",
+      "strength": "300mg",
+      "form": "injection",
+      "frequency": "one dose daily IV over 5 hours",
+      "duration": "15 days",
+      "certain": true
+    }
+  ]
+}

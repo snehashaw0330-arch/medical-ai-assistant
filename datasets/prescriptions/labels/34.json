@@ -1,0 +1,32 @@
+{
+  "image": "34.jpg",
+  "image_path": "datasets/prescriptions/illegible_dataset/34.jpg",
+  "source": "real-handwritten",
+  "split": "handwritten",
+  "certain": false,
+  "_note": "TRULY ILLEGIBLE - marked certain:false at top level and excluded from headline scores. A cropped fragment of a prescription showing 'R/', a circled heading, and TWO bracketed drug lines each ending in a '(x 1 x5)' style course notation (one tablet, five days). The STRUCTURE is readable - two prescribed items - but neither drug NAME can be read with any confidence: the letter shapes admit several unrelated products and no reading survives scrutiny. Per rule 2 a best reading is recorded rather than nothing, but both are flagged certain:false and should be treated as placeholders, not data. The '120' on the first line may be a strength (120mg/5ml is a standard paediatric paracetamol syrup) but that is inference, not reading. This page is the honest floor of the dataset: it exists so the label set is not silently composed only of pages a transcriber found easy, which would flatter every recall number computed against it. Needs a higher-resolution scan and a second transcriber. FOLLOW-UP: on the 45-label benchmark the pipeline read this page as 'calpol t' - and Calpol 120mg/5ml is THE standard paediatric paracetamol syrup in India, which fits the legible '120' far better than the transcriber's placeholder 'Sibax'. The pipeline is probably right here and the label is probably wrong; the placeholders stay flagged certain:false and the page stays excluded from headline scores. Recorded as evidence that these two names are placeholders, not data.",
+  "patient": {
+    "age": null,
+    "weight_kg": null,
+    "sex": null
+  },
+  "complaints": [],
+  "medicines": [
+    {
+      "name": "Sibax",
+      "strength": "120",
+      "form": null,
+      "frequency": "1",
+      "duration": "5 days",
+      "certain": false
+    },
+    {
+      "name": "Jedcran",
+      "strength": null,
+      "form": null,
+      "frequency": "1",
+      "duration": "5 days",
+      "certain": false
+    }
+  ]
+}

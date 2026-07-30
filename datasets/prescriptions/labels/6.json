@@ -1,0 +1,24 @@
+{
+  "image": "6.jpg",
+  "image_path": "datasets/prescriptions/illegible_dataset/6.jpg",
+  "source": "real-handwritten",
+  "split": "handwritten",
+  "certain": true,
+  "_note": "Primus Super Speciality Hospital, New Delhi. Handwritten 'Remdesivir Prescription' on printed letterhead; signed Dr. Abhishek, RMO COVID ward. Single drug on a two-step regimen (200mg IV stat, then 100mg IV OD x 4 days, total 6 vials) recorded as ONE medicine so drug identity is not double-counted; the stat dose is recorded as strength. raw_text omitted deliberately - the page bottom is cropped mid-line, so a full transcription would be a guess. Needs verification by a second transcriber.",
+  "patient": {
+    "age": "55 years",
+    "weight_kg": null,
+    "sex": "M"
+  },
+  "complaints": ["Covid with pneumonia"],
+  "medicines": [
+    {
+      "name": "Remdesivir",
+      "strength": "200mg",
+      "form": "injection",
+      "frequency": "OD",
+      "duration": "4 days",
+      "certain": true
+    }
+  ]
+}

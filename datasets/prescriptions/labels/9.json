@@ -1,0 +1,25 @@
+{
+  "image": "9.jpg",
+  "image_path": "datasets/prescriptions/illegible_dataset/9.jpg",
+  "source": "sample-form",
+  "split": "printed",
+  "certain": true,
+  "raw_text": "C.O. Jones 25 El Caro Street Pleasantville, OH 43320 Date March 10, 2009 Patient Name: Joseph McIntyre Address: DOB: 12/26/1998 Allergies: NKDA Weight: 65 kg RX: Azithromycin 200 mg/5mL Day 1: 15 mL Day 2: 7.5 mL Dispense 5 mg/mL solution, 30 mL Refills: 0 CO Jones, ARNP",
+  "_note": "A rendered sample US prescription (script typeface, not real handwriting) - clean enough to carry raw_text, which is why it is included: CER/WER coverage was only 4 of 9 pages. ONE token is uncertain - the dispense concentration reads '5 mg/mL' on the page, but azithromycin 200mg/5mL suspension is 40 mg/mL, so this may be '40 mg/mL'; recorded as written per rule 1 (transcribe what is on the page, not what is plausible) and flagged here for a second transcriber. Dosing is a two-day taper (15 mL then 7.5 mL) recorded as one medicine so drug identity is not double-counted.",
+  "patient": {
+    "age": null,
+    "weight_kg": 65,
+    "sex": null
+  },
+  "complaints": [],
+  "medicines": [
+    {
+      "name": "Azithromycin",
+      "strength": "200 mg/5mL",
+      "form": "solution",
+      "frequency": null,
+      "duration": "2 days",
+      "certain": true
+    }
+  ]
+}

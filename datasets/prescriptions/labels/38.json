@@ -1,0 +1,15 @@
+{
+  "image": "38.jpg",
+  "image_path": "datasets/prescriptions/illegible_dataset/38.jpg",
+  "source": "real-handwritten",
+  "split": "mixed",
+  "certain": true,
+  "_note": "NEGATIVE CASE - zero medicines, and the most adversarial one in the set. Netaji Subhas Chandra Bose Cancer Hospital, Kolkata; patient Shila Dasgupta, 57/F, MR NCRI/22/1795, Dr. Soumen Das (Surgical Oncology), 16-04-2022. The form has a pre-printed field literally captioned 'Medicine Prescribed :' - and what is written under it is three PROCEDURES: 1. Core Biopsy (Rt) Breast, 2. PET CT Scan, 3. Review. No drug is prescribed anywhere on the page. Any pipeline that trusts the field caption over the content will return 'Core Biopsy' or 'PET CT Scan' as medicines. A second trap sits in the left margin: 'Comorbidities: T2DM on OHA' names a drug CLASS (oral hypoglycaemic agents) that the patient already takes and that is NOT being prescribed here. Clinical content: right breast lump noticed 2 months back, O/E T3 N1 lesion, USG BIRADS 4, FNAC invasive duct carcinoma. raw_text omitted deliberately - dense pre-printed bilingual form furniture around sprawling handwriting.",
+  "patient": {
+    "age": "57 years",
+    "weight_kg": null,
+    "sex": "F"
+  },
+  "complaints": ["right breast lump noticed 2 months back", "T3 N1 lesion", "BIRADS 4 lesion on USG", "FNAC invasive duct carcinoma", "T2DM on OHA"],
+  "medicines": []
+}

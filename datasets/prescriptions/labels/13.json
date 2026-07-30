@@ -1,0 +1,24 @@
+{
+  "image": "13.jpg",
+  "image_path": "datasets/prescriptions/illegible_dataset/13.jpg",
+  "source": "real-handwritten",
+  "split": "mixed",
+  "certain": false,
+  "_note": "Australian PBS prescription form, patient John Beckworth, date 3/8/0?. Marked certain:false at TOP LEVEL and therefore excluded from headline scores - not because the handwriting is unreadable, but because the IMAGE IS CROPPED mid-prescription: the drug line runs off the right edge and the page bottom is cut, so an unknown number of medicines are off-frame. Scoring recall against a partial page would understate the pipeline unfairly. The one visible drug is 'Hypnodorm' (flunitrazepam, an Australian brand); its strength is off-frame. Retained as a poor-quality/cropped case, which the target set explicitly wants.",
+  "patient": {
+    "age": null,
+    "weight_kg": null,
+    "sex": null
+  },
+  "complaints": [],
+  "medicines": [
+    {
+      "name": "Hypnodorm",
+      "strength": null,
+      "form": null,
+      "frequency": null,
+      "duration": null,
+      "certain": false
+    }
+  ]
+}

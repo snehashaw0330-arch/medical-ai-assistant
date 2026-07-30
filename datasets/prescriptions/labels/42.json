@@ -1,0 +1,33 @@
+{
+  "image": "42.jpg",
+  "image_path": "datasets/prescriptions/illegible_dataset/42.jpg",
+  "source": "sample-form",
+  "split": "printed",
+  "certain": true,
+  "raw_text": "Medical prescription by Klippa Medical Center Lubeckweg 2, 9723HE Groningen, The Netherlands Patient name: Mario Carlos van der Vaart Patient age: 38 Date: 20-01-2025 Rx Paracetamol - 50mg Ibuprofen - 150mg Signed by: Dr. Bill Andrew Balmer",
+  "_note": "Digitally rendered demo prescription from Klippa (an OCR vendor), Groningen - clean vector text in a handwriting-style typeface, so it is split 'printed' and safe to carry raw_text. Both drugs are written as GENERIC molecule names with no brand, the case the brand-only index handles worst. The strengths are clinically implausible for a 38-year-old (Paracetamol 50mg, Ibuprofen 150mg are sub-therapeutic adult doses) but are recorded exactly as written per rule 1 - this is a vendor demo, not a real order, and correcting it would make the label disagree with the page. The header prints 'Patient' with a diaeresis ('Patient') in the Dutch original; raw_text uses the plain form since the diaeresis is a rendering detail rather than content.",
+  "patient": {
+    "age": "38 years",
+    "weight_kg": null,
+    "sex": null
+  },
+  "complaints": [],
+  "medicines": [
+    {
+      "name": "Paracetamol",
+      "strength": "50mg",
+      "form": null,
+      "frequency": null,
+      "duration": null,
+      "certain": true
+    },
+    {
+      "name": "Ibuprofen",
+      "strength": "150mg",
+      "form": null,
+      "frequency": null,
+      "duration": null,
+      "certain": true
+    }
+  ]
+}

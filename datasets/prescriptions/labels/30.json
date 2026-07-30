@@ -1,0 +1,49 @@
+{
+  "image": "30.jpg",
+  "image_path": "datasets/prescriptions/illegible_dataset/30.jpg",
+  "source": "real-handwritten",
+  "split": "handwritten",
+  "certain": true,
+  "raw_text": "Smile Designing | Teeth Whitening Dental Implants | General Dentistry THE WHITE TUSK /whitetuskdental 13/10/2022 Ms. Fiza Mozawala 19/F Rx, Cap. Phexin 500mg 1-0-1 x 5 days Tab. Zerodol PT 1-0-1 x 5 days Stolin gum paint 1-0-1 x 5 days Colgate Plax mouthwash - 1 week. Oral B Pro 2 2000N electric brush. Ph: +91 8108112511 | Web: www.thewhitetusk.com | Email: info@thewhitetusk.com",
+  "_note": "The White Tusk dental clinic again (same prescriber as 17.jpg), dated 13/10/2022. Clean fully-visible page, so raw_text is included for CER/WER coverage. DELIBERATE EXCLUSION: the final line, 'Oral B Pro 2 2000N electric brush', is a TOOTHBRUSH - a branded consumer product with a model number that reads exactly like a drug-plus-strength ('Pro 2 2000N'). It is not a medicine and is not listed, making this a false-positive probe embedded inside a positive page. Colgate Plax mouthwash IS listed: it is a prescribed medicated rinse, the same call made for Hexigel in 17.jpg. The second drug is written such that 'Zerodol PT' (a very common Indian dental analgesic) and a literal reading of 'Zeeodol' are both defensible; recorded as Zerodol PT but flagged certain:false rather than silently corrected.",
+  "patient": {
+    "age": "19 years",
+    "weight_kg": null,
+    "sex": "F"
+  },
+  "complaints": [],
+  "medicines": [
+    {
+      "name": "Phexin",
+      "strength": "500mg",
+      "form": "capsule",
+      "frequency": "1-0-1",
+      "duration": "5 days",
+      "certain": true
+    },
+    {
+      "name": "Zerodol PT",
+      "strength": null,
+      "form": "tablet",
+      "frequency": "1-0-1",
+      "duration": "5 days",
+      "certain": false
+    },
+    {
+      "name": "Stolin",
+      "strength": null,
+      "form": "gum paint",
+      "frequency": "1-0-1",
+      "duration": "5 days",
+      "certain": true
+    },
+    {
+      "name": "Colgate Plax",
+      "strength": null,
+      "form": "mouthwash",
+      "frequency": null,
+      "duration": "1 week",
+      "certain": true
+    }
+  ]
+}

@@ -1,0 +1,48 @@
+{
+  "image": "33.jpg",
+  "image_path": "datasets/prescriptions/illegible_dataset/33.jpg",
+  "source": "real-handwritten",
+  "split": "handwritten",
+  "certain": true,
+  "_note": "P. D. Hinduja Hospital & Medical Research Centre, Mahim, Mumbai. Patient Rahul, 29/M. Four common Indian brands, all clearly written. Detail worth preserving: under 'T. Pan 40mg' an earlier 'SOS' is STRUCK THROUGH and replaced by the 1-0-0 slot notation - a corrected frequency, and the struck text must not be read as the live instruction. 'f/w in Med OPD SOS c reports' (follow up) and 'oral fluids' are advice, not drugs. raw_text omitted deliberately - ink from another page bleeds through the top-right corner and a second document intrudes on the right edge, so a full-page transcription would include text that is not part of this prescription.",
+  "patient": {
+    "age": "29 years",
+    "weight_kg": null,
+    "sex": "M"
+  },
+  "complaints": [],
+  "medicines": [
+    {
+      "name": "Azee",
+      "strength": "500mg",
+      "form": "tablet",
+      "frequency": "1-0-0",
+      "duration": "7 days",
+      "certain": true
+    },
+    {
+      "name": "Tusq",
+      "strength": "1 tsp",
+      "form": "syrup",
+      "frequency": "1-1-1",
+      "duration": null,
+      "certain": true
+    },
+    {
+      "name": "Pan",
+      "strength": "40mg",
+      "form": "tablet",
+      "frequency": "1-0-0",
+      "duration": "7 days",
+      "certain": true
+    },
+    {
+      "name": "Dolo 650",
+      "strength": "650mg",
+      "form": "tablet",
+      "frequency": "SOS",
+      "duration": null,
+      "certain": true
+    }
+  ]
+}

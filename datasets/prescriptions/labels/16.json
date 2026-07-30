@@ -1,0 +1,24 @@
+{
+  "image": "16.jpg",
+  "image_path": "datasets/prescriptions/illegible_dataset/16.jpg",
+  "source": "real-handwritten",
+  "split": "mixed",
+  "certain": true,
+  "_note": "UK inpatient drug-chart row (printed grid, handwritten entries), hence split 'mixed'. Low-resolution crop but legible. Single order: Paracetamol 1g PO QDS, special instructions '4 HOURLY PAIN'. The 'Medicines Reconciliation' row has 'No change' circled - a form control, not a drug. A useful negative-adjacent case: the page contains ward furniture (Bleep, GMC No., Supply, Pharmacy Check) that must not be mistaken for medicines. raw_text omitted deliberately - the signature and start date are not resolvable at this resolution.",
+  "patient": {
+    "age": null,
+    "weight_kg": null,
+    "sex": null
+  },
+  "complaints": ["pain"],
+  "medicines": [
+    {
+      "name": "Paracetamol",
+      "strength": "1g",
+      "form": null,
+      "frequency": "QDS",
+      "duration": null,
+      "certain": true
+    }
+  ]
+}

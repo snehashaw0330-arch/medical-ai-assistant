@@ -1,0 +1,49 @@
+{
+  "image": "17.jpg",
+  "image_path": "datasets/prescriptions/illegible_dataset/17.jpg",
+  "source": "real-handwritten",
+  "split": "handwritten",
+  "certain": true,
+  "raw_text": "Smile Designing | Teeth Whitening Dental Implants | General Dentistry THE WHITE TUSK /whitetuskdental 12/10/22 Mr. Sachin Sansare 28/M Rx, after meals Tab. Augmentin 625mg 1-0-1 x 5 days Tab. Enzoflam 1-0-1 x 5 days before meals Tab. Pan-D 40mg 1-0-0 x 5 days Adv: Hexigel gum paint massage 1-0-1 x 1 week Ph: +91 8108112511 | Web: www.thewhitetusk.com | Email: info@thewhitetusk.com",
+  "_note": "The White Tusk dental clinic, dated 12/10/22. Large, well-formed handwriting on a clean fully-visible page, so raw_text IS included - CER/WER coverage was only 4 of 9 pages and this is one of the safest pages in the set to score against. Meal timing is bracketed on the page (Augmentin and Enzoflam after meals, Pan-D before) but is not a schema field. Hexigel gum paint is a prescribed topical (chlorhexidine) and is counted as a medicine, not advice, even though it sits under 'Adv:'. The illegible signature scrawl is excluded from raw_text.",
+  "patient": {
+    "age": "28 years",
+    "weight_kg": null,
+    "sex": "M"
+  },
+  "complaints": [],
+  "medicines": [
+    {
+      "name": "Augmentin",
+      "strength": "625mg",
+      "form": "tablet",
+      "frequency": "1-0-1",
+      "duration": "5 days",
+      "certain": true
+    },
+    {
+      "name": "Enzoflam",
+      "strength": null,
+      "form": "tablet",
+      "frequency": "1-0-1",
+      "duration": "5 days",
+      "certain": true
+    },
+    {
+      "name": "Pan-D",
+      "strength": "40mg",
+      "form": "tablet",
+      "frequency": "1-0-0",
+      "duration": "5 days",
+      "certain": true
+    },
+    {
+      "name": "Hexigel",
+      "strength": null,
+      "form": "gum paint",
+      "frequency": "1-0-1",
+      "duration": "1 week",
+      "certain": true
+    }
+  ]
+}
