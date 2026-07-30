@@ -126,29 +126,36 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-6">
-      {/* Hero */}
-      <section className="animate-fade-up overflow-hidden rounded-3xl border border-border bg-gradient-to-br from-primary to-accent p-8 text-white shadow-xl shadow-primary/20 lg:p-12">
-        <Badge className="bg-white/15 text-white backdrop-blur">
-          <Activity size={12} /> AI-Powered Healthcare
-        </Badge>
-        <h2 className="mt-4 max-w-2xl text-3xl font-bold leading-tight text-white lg:text-4xl">
-          Smarter clinical decisions, from symptoms to prescriptions.
-        </h2>
-        <p className="mt-3 max-w-xl text-white/85">
-          MediSense combines disease prediction, handwriting OCR, and medicine
-          intelligence into one calibrated, explainable assistant.
-        </p>
-        <div className="mt-6 flex flex-wrap gap-3">
-          <Link to="/predict">
-            <Button variant="inverse">
-              Start Diagnosis <ArrowRight size={16} />
-            </Button>
-          </Link>
-          <Link to="/ocr">
-            <Button className="border border-white/40 bg-white/10 text-white hover:bg-white/20">
-              Scan Prescription
-            </Button>
-          </Link>
+      {/* Hero.
+          Light mode keeps the bright primary->accent gradient. In dark mode that
+          gradient was the only lit surface on the page and read as a slab of
+          daylight, so dark drops to the same surface tones as the cards and
+          carries the brand colour as a soft glow instead. */}
+      <section className="animate-fade-up relative overflow-hidden rounded-3xl border border-border bg-gradient-to-br from-primary to-accent p-8 text-white shadow-xl shadow-primary/20 lg:p-12 dark:border-primary/20 dark:from-surface dark:to-surface-2 dark:text-foreground dark:shadow-black/40">
+        <div className="pointer-events-none absolute -right-24 -top-28 hidden h-80 w-80 rounded-full bg-primary/20 blur-3xl dark:block" />
+        <div className="relative">
+          <Badge className="bg-white/15 text-white backdrop-blur dark:bg-primary/15 dark:text-primary">
+            <Activity size={12} /> AI-Powered Healthcare
+          </Badge>
+          <h2 className="mt-4 max-w-2xl text-3xl font-bold leading-tight text-white lg:text-4xl dark:text-foreground">
+            Smarter clinical decisions, from symptoms to prescriptions.
+          </h2>
+          <p className="mt-3 max-w-xl text-white/85 dark:text-muted">
+            MediSense combines disease prediction, handwriting OCR, and medicine
+            intelligence into one calibrated, explainable assistant.
+          </p>
+          <div className="mt-6 flex flex-wrap gap-3">
+            <Link to="/predict">
+              <Button variant="inverse">
+                Start Diagnosis <ArrowRight size={16} />
+              </Button>
+            </Link>
+            <Link to="/ocr">
+              <Button className="border border-white/40 bg-white/10 text-white hover:bg-white/20 dark:border-border dark:bg-surface-2 dark:text-foreground dark:hover:bg-surface-2/70">
+                Scan Prescription
+              </Button>
+            </Link>
+          </div>
         </div>
       </section>
 

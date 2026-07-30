@@ -12,7 +12,10 @@ const VARIANTS = {
   // button must invert instead of blending into the background. Declared as a
   // variant rather than passed via className: `cn` is plain clsx, so a
   // className colour would only beat the variant's by stylesheet order.
-  inverse: 'bg-white text-primary hover:bg-white/90 shadow-sm shadow-black/10',
+  // In dark mode the hero is no longer a bright gradient, so inverting to solid
+  // white would be the brightest thing on the page — fall back to primary there.
+  inverse:
+    'bg-white text-primary hover:bg-white/90 shadow-sm shadow-black/10 dark:bg-primary dark:text-primary-foreground dark:hover:bg-primary-strong dark:shadow-primary/30',
 }
 
 const SIZES = {
