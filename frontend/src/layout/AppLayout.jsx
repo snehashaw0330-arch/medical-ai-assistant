@@ -5,6 +5,7 @@ import Topbar from './Topbar'
 import CommandPalette from '@/app/CommandPalette'
 import ErrorBoundary from '@/app/ErrorBoundary'
 import RouteFallback from '@/app/RouteFallback'
+import RouteTabs from '@/app/RouteTabs'
 
 export default function AppLayout() {
   const [menuOpen, setMenuOpen] = useState(false)
@@ -37,6 +38,7 @@ export default function AppLayout() {
       <div className="flex min-w-0 flex-1 flex-col">
         <Topbar onMenu={() => setMenuOpen(true)} onOpenPalette={openPalette} />
         <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 lg:px-8 lg:py-8">
+          <RouteTabs />
           {/* Keyed on the path so navigating away from a crashed page clears
               the error — without the key the boundary would stay tripped and
               every subsequent route would render the fallback. */}

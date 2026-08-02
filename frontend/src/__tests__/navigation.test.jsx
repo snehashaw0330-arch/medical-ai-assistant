@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { NAV_TREE, ROUTES, ROUTE_TREE, findRoute } from '@/app/routes'
+import { NAV_TREE, ROUTES, ROUTE_TREE, findRoute, tabsFor } from '@/app/routes'
 import { buildClientMock } from '@/test/apiMock'
 import { renderRoute, waitForRoute } from '@/test/renderRoute'
 
@@ -82,6 +82,67 @@ describe('sidebar structure', () => {
     await user.click(heading)
     expect(heading).toHaveAttribute('aria-expanded', 'true')
     expect(nav.getByRole('link', { name: /Models/ })).toBeInTheDocument()
+  })
+})
+
+describe('tabbed destinations', () => {
+  it('shows one sidebar row per tabbed destination', () => {
+    // Knowledge was five rows: Medicines, Alternatives, Knowledge Base,
+    // Evidence, Verification. The paired ones are tabs now, so it is three.
+    const knowledge = NAV_TREE.find((n) => n.id === 'knowledge')
+    expect(knowledge.items.map((i) => i.label)).toEqual([
+      'Medicines',
+      'Knowledge Base',
+      'Evidence',
+    ])
+  })
+
+  it('keeps every hidden tab routable and searchable', () => {
+    // Hidden means "not a sidebar row", never "unreachable". Both still have
+    // their own URL and both still appear in the command palette.
+    for (const path of ['/knowledge/medicines/alternatives', '/knowledge/verify']) {
+      expect(ROUTES.find((r) => r.to === path)).toBeDefined()
+    }
+  })
+
+  it('pairs each tab group with exactly its siblings', () => {
+    expect(tabsFor(findRoute('/knowledge/medicines')).map((t) => t.to)).toEqual([
+      '/knowledge/medicines',
+      '/knowledge/medicines/alternatives',
+    ])
+    expect(tabsFor(findRoute('/knowledge/verify')).map((t) => t.to)).toEqual([
+      '/knowledge/evidence',
+      '/knowledge/verify',
+    ])
+    expect(tabsFor(findRoute('/knowledge/base'))).toEqual([])
+  })
+
+  it('renders tabs on a tabbed route and navigates between them', async () => {
+    const user = userEvent.setup()
+    renderRoute('/knowledge/medicines')
+    await waitForRoute()
+
+    const tabs = within(screen.getByRole('navigation', { name: 'Section' }))
+    // Tabs use `tabLabel`, not the page label: inside the Medicines
+    // destination the first tab reads "Look up", not "Medicines" again.
+    expect(tabs.getAllByRole('link').map((l) => l.textContent.trim())).toEqual([
+      'Look up',
+      'Alternatives',
+    ])
+
+    await user.click(tabs.getByRole('link', { name: /Alternatives/ }))
+    await waitForRoute()
+
+    const header = within(screen.getByRole('banner'))
+    expect(header.getByRole('heading', { level: 1 })).toHaveTextContent('Alternatives')
+  })
+
+  it('renders no tab bar on a standalone route', async () => {
+    renderRoute('/knowledge/base')
+    await waitForRoute()
+    expect(
+      screen.queryByRole('navigation', { name: 'Section' }),
+    ).not.toBeInTheDocument()
   })
 })
 

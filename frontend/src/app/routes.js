@@ -126,11 +126,47 @@ export const ROUTE_TREE = [
     label: 'Knowledge',
     icon: BookOpen,
     items: [
-      { to: '/knowledge/medicines', label: 'Medicines', icon: Pill, element: MedicineSearch, end: true },
-      { to: '/knowledge/medicines/alternatives', label: 'Alternatives', icon: Sparkles, element: MedicineRecommendations },
+      // Medicines and Evidence are each one sidebar destination with two tabs.
+      // Looking a drug up and asking for alternatives is one task, as is asking
+      // a question and verifying an answer — three extra sidebar rows were
+      // advertising the seam between two backends, not a user's intent.
+      {
+        to: '/knowledge/medicines',
+        label: 'Medicines',
+        icon: Pill,
+        element: MedicineSearch,
+        end: true,
+        tabGroup: 'medicines',
+        tabLabel: 'Look up',
+      },
+      {
+        to: '/knowledge/medicines/alternatives',
+        label: 'Alternatives',
+        icon: Sparkles,
+        element: MedicineRecommendations,
+        tabGroup: 'medicines',
+        tabLabel: 'Alternatives',
+        hidden: true,
+      },
       { to: '/knowledge/base', label: 'Knowledge Base', icon: Library, element: KnowledgeBase },
-      { to: '/knowledge/evidence', label: 'Evidence', icon: BookOpen, element: EvidenceExplorer },
-      { to: '/knowledge/verify', label: 'Verification', icon: BadgeCheck, element: EvidenceVerification },
+      {
+        to: '/knowledge/evidence',
+        label: 'Evidence',
+        icon: BookOpen,
+        element: EvidenceExplorer,
+        end: true,
+        tabGroup: 'evidence',
+        tabLabel: 'Ask',
+      },
+      {
+        to: '/knowledge/verify',
+        label: 'Verification',
+        icon: BadgeCheck,
+        element: EvidenceVerification,
+        tabGroup: 'evidence',
+        tabLabel: 'Verify a claim',
+        hidden: true,
+      },
     ],
   },
   {
@@ -195,8 +231,19 @@ export const ROUTES = ROUTE_TREE.flatMap((node) =>
     : [{ ...node, group: null }],
 )
 
-/** Sidebar-visible structure only. */
-export const NAV_TREE = ROUTE_TREE.filter((node) => !node.hidden)
+/** Sidebar-visible structure only. Hidden leaves stay routable and searchable. */
+export const NAV_TREE = ROUTE_TREE.filter((node) => !node.hidden).map((node) =>
+  node.items ? { ...node, items: node.items.filter((item) => !item.hidden) } : node,
+)
+
+/**
+ * The sibling routes that make up a tabbed destination, in declaration order.
+ * Empty for a route that stands alone.
+ */
+export function tabsFor(route) {
+  if (!route?.tabGroup) return []
+  return ROUTES.filter((r) => r.tabGroup === route.tabGroup)
+}
 
 /**
  * Resolve a pathname to its route.
