@@ -332,7 +332,8 @@ pediatric baseline (risk `moderate` / 51.0, infant red flag).
 | 2 — route table & sidebar | **done** | `c962196` | 150 tests; 8/8 caught; 27 → 7 sidebar rows |
 | 3a — features tree | **done** | `4b5a026` | 161 tests; 4/4 caught; 0 cross-feature imports |
 | 3b — tabbed merges | **done** | `868e0a3` | 166 tests; 6/6 caught; Knowledge 5 → 3 rows |
-| 4 — clinical correctness | **done** | | 15 new backend tests; 7/7 mutations caught |
+| 4 — clinical correctness | **done** | | 20 backend + 1 frontend test; 11/11 mutations caught; both matchers |
+| 7a — dependency vulns | **done** | | npm audit 9 -> 2; the 2 assessed as unreachable |
 | 3c — governance shell | **not started** | | see note below |
 | 3d — Chat into Copilot, shared FileIntake | **not started** | | |
 | 5 — TanStack Query migration | **not started** | | the 202 `useState` calls are untouched |

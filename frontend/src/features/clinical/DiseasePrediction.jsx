@@ -93,6 +93,11 @@ export default function DiseasePrediction() {
   const matched = result ? readMatched(result) : []
   const unmatched = result ? readUnmatched(result) : []
   const predictions = result?.predictions ?? []
+  // With no ranked predictions the leading warning is the refusal reason, which
+  // the empty state presents; the rest still belong in the warnings card.
+  const allWarnings = result?.warnings ?? []
+  const otherWarnings = predictions.length ? allWarnings : allWarnings.slice(1)
+
   const topConfidence = predictions.length ? Number(predictions[0].confidence) : 0
   const lowConfidence = predictions.length > 0 && topConfidence < RELIABLE_MIN
 
@@ -238,13 +243,16 @@ export default function DiseasePrediction() {
                 </Card>
               )}
 
-              {/* Other backend warnings */}
-              {result.warnings?.length > 0 && (
+              {/* Other backend warnings.
+                  When nothing was ranked, the first warning IS the refusal
+                  reason and is shown by the empty state below — repeating it
+                  here would print it twice on the same screen. */}
+              {otherWarnings.length > 0 && (
                 <Card className="border-warning/30 bg-warning/5">
                   <div className="flex gap-3">
                     <AlertTriangle size={18} className="mt-0.5 shrink-0 text-warning" />
                     <ul className="space-y-1 text-sm text-foreground">
-                      {result.warnings.map((w, i) => (
+                      {otherWarnings.map((w, i) => (
                         <li key={i}>{w}</li>
                       ))}
                     </ul>
@@ -261,10 +269,20 @@ export default function DiseasePrediction() {
               </div>
 
               {predictions.length === 0 ? (
+                // The backend refuses to rank below its floors and says exactly
+                // why ("A single symptom cannot distinguish between 41
+                // conditions"). Showing generic advice here overrode that with
+                // the wrong instruction — rephrasing does not help when what is
+                // needed is another symptom — and "no conditions matched"
+                // implies the model looked and found nothing, when in fact it
+                // declined to look.
                 <EmptyState
                   icon={Search}
-                  title="No conditions matched"
-                  description="Try rephrasing or adding more specific symptoms."
+                  title="No assessment produced"
+                  description={
+                    result.warnings?.[0] ??
+                    'Try rephrasing or adding more specific symptoms.'
+                  }
                 />
               ) : (
                 predictions.map((p, i) => {
