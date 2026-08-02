@@ -278,7 +278,8 @@ pediatric baseline (risk `moderate` / 51.0, infant red flag).
 |---|---|---|
 | 0 — baselines & safety net | **done** 2026-08-02 | 62 frontend tests; 5/5 mutations caught |
 | 1 — frontend foundation | **done** 2026-08-02 | 88 frontend tests; app chunk 1,070 → 326 kB |
-| 2–6 | not started | |
+| 2 — route table & sidebar | **done** 2026-08-02 | 150 frontend tests; 8/8 mutations caught; 27 → 7 sidebar rows |
+| 3–6 | not started | |
 
 Each phase is mutation-tested, not just run: the suite is re-verified by deliberately
 breaking things and confirming it fails. Two gaps were found and closed this way rather
@@ -297,6 +298,15 @@ than by inspection.
 Also fixed while verifying: the API mock originally faked `@/lib/api`, which any page could
 have escaped by importing a domain module directly. It now fakes the shared axios instance
 instead, so all 23 domain modules run their real code and no import path can bypass it.
+
+* **Phase 2's sidebar defaulted to open.** Every group started expanded, so all 26
+  destinations were still on screen — the compaction was cosmetic. Groups now start closed
+  with the active one deriving itself open, and a test pins the resting state at seven rows.
+* **Escape only closed the palette while its input had focus.** The listener moved to the
+  document, since the dialog is modal.
+
+Reverting the `findRoute` specificity fix breaks 60 of the 150 tests, which is the intended
+level of coverage for the piece of behaviour that was previously order-dependent.
 
 ## 4. Risks
 
