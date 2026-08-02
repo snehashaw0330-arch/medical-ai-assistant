@@ -70,11 +70,22 @@ Phase 1 target: `index.js` drops sharply and each route becomes its own chunk.
 | OCR `_attach_*` fan-out functions | **6**, each with a lazy import | registry — Phase 5 |
 | modules with tests | **3 of 22** | 8 — Phase 6 |
 
-## Known issues parked for later
+## Dependency vulnerabilities
 
-* **npm audit: 9 vulnerabilities** (6 high) — all pre-existing and all in direct deps that
-  predate this work (`axios`, `react-router-dom`, `vite`) or their transitives. Deliberately
-  not bumped mid-refactor; scheduled for Phase 6 hardening.
+Resolved 2026-08-02: **9 -> 2** via non-breaking `npm audit fix` (axios, vite, postcss,
+form-data, brace-expansion, dompurify, @babel/core). Gates green afterwards.
+
+The remaining 2 are one advisory — *React Router: open redirect via backslash in `<Link>`
+and `useHref`*, affecting 7.12.0–8.2.0. **Deliberately not "fixed", because the only offered
+remedy is a downgrade** from 7.18.2 to 7.11.0, which would regress the router underneath the
+Phase 2 navigation system.
+
+Assessed as unreachable here rather than assumed: the advisory needs a user-controlled URL
+to reach `<Link to>` or `useHref`. Every link target in the app is a literal or comes from
+the static route table (`ROUTE_TREE`, `LEGACY_REDIRECTS`, `ROUTES`), the single `navigate()`
+call is `navigate(route.to)`, and `useHref` is not used at all. Re-check this if any page
+ever renders a link from user input or an API response — then take the upgrade the moment a
+patched 7.x ships.
 
 ## Fixed during Phase 0
 
