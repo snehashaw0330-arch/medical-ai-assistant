@@ -276,11 +276,11 @@ pediatric baseline (risk `moderate` / 51.0, infant red flag).
 
 | phase | state | commit | evidence |
 |---|---|---|---|
-| 0 — baselines & safety net | **done** | `1cf8444` | 62 tests; 5/5 mutations caught |
-| 1 — frontend foundation | **done** | `158c70b` | 88 tests; 11/11 caught; app chunk 1,070 → 326 kB |
-| 2 — route table & sidebar | **done** | `e781062` | 150 tests; 8/8 caught; 27 → 7 sidebar rows |
-| 3a — features tree | **done** | `3c2a6e4` | 161 tests; 4/4 caught; 0 cross-feature imports |
-| 3b — tabbed merges | **done** | `e6f1811` | 166 tests; 6/6 caught; Knowledge 5 → 3 rows |
+| 0 — baselines & safety net | **done** | `9fafb9c` | 62 tests; 5/5 mutations caught |
+| 1 — frontend foundation | **done** | `36ca73a` | 88 tests; 11/11 caught; app chunk 1,070 → 326 kB |
+| 2 — route table & sidebar | **done** | `c962196` | 150 tests; 8/8 caught; 27 → 7 sidebar rows |
+| 3a — features tree | **done** | `4b5a026` | 161 tests; 4/4 caught; 0 cross-feature imports |
+| 3b — tabbed merges | **done** | `868e0a3` | 166 tests; 6/6 caught; Knowledge 5 → 3 rows |
 | 3c — governance shell | **not started** | | see note below |
 | 3d — Chat into Copilot, shared FileIntake | **not started** | | |
 | 4 — TanStack Query migration | **not started** | | the 202 `useState` calls are untouched |
