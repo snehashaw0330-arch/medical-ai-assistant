@@ -18,6 +18,7 @@ What this does differently from a naive ``RandomForest().fit()``:
 from __future__ import annotations
 
 import json
+import re
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -44,6 +45,25 @@ def load_clean() -> tuple[pd.DataFrame, pd.Series]:
         print(f"[clean] dropping junk columns: {junk}")
         df = df.drop(columns=junk)
     df.columns = [c.strip() for c in df.columns]
+
+    # The CSV ships `fluid_overload` twice, so pandas renames the second to
+    # `fluid_overload.1`. The consequences were both real and invisible: the
+    # first copy is all zeros (a feature that can never fire), all 114 positive
+    # rows live in the second, and the symptom catalogue offered users a
+    # literal "fluid overload.1" to pick from. Selecting the sane-looking
+    # "fluid overload" therefore contributed nothing to any prediction.
+    #
+    # Merge duplicates by OR rather than dropping either one, so the surviving
+    # column keeps the signal whichever copy happens to carry it.
+    for dup in [c for c in df.columns if re.fullmatch(r".+\.\d+", str(c))]:
+        base = str(dup).rsplit(".", 1)[0]
+        if base in df.columns:
+            print(f"[clean] merging duplicate column {dup!r} into {base!r} "
+                  f"(sums {df[base].sum()} + {df[dup].sum()})")
+            df[base] = (df[base].fillna(0).astype(int)
+                        | df[dup].fillna(0).astype(int))
+            df = df.drop(columns=[dup])
+
     y = df["prognosis"].astype(str).str.strip()
     X = df.drop(columns=["prognosis"]).fillna(0).astype(int)
     return X, y

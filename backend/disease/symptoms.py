@@ -76,6 +76,26 @@ ALIASES: dict[str, str] = {
 }
 
 
+# Conditions, not symptoms. A user typing one of these is naming what they
+# think they have, and the honest answer is to say so — not to find the
+# nearest-looking symptom. Without this "flu" still autocompletes to *fluid
+# overload* (a genuine word-prefix match), and "hiv"/"aids" were how the
+# checker ended up answering "AIDS" to a user who typed AIDS.
+CONDITION_TERMS = {
+    "aids", "hiv", "cancer", "covid", "covid19", "covid 19", "corona",
+    "coronavirus", "tb", "tuberculosis", "flu", "influenza", "diabetes",
+    "asthma", "malaria", "dengue", "typhoid", "hepatitis", "jaundice",
+    "migraine", "pneumonia", "arthritis", "hypertension", "stroke",
+    "heart attack", "ulcer", "allergy", "psoriasis", "chickenpox",
+    "hypothyroidism", "hyperthyroidism", "hypoglycemia", "vertigo", "acne",
+}
+
+
+def is_condition_term(text: str) -> bool:
+    """True when the input names a condition rather than a symptom."""
+    return normalize(text) in CONDITION_TERMS
+
+
 def normalize(text: str) -> str:
     s = text.strip().lower()
     s = re.sub(r"[_\-]+", " ", s)
@@ -90,6 +110,15 @@ def to_canonical_key(canonical: str) -> str:
 
 def humanize(canonical: str) -> str:
     return canonical.replace("_", " ").strip()
+
+
+def _starts_a_word(label: str, query: str) -> bool:
+    """True when ``query`` begins ``label`` or any word inside it.
+
+    Word-initial rather than plain containment: "hiv" is contained in
+    "shivering", and treating that as a match is exactly the bug this guards.
+    """
+    return label.startswith(query) or f" {query}" in f" {label}"
 
 
 @dataclass
@@ -114,6 +143,10 @@ class SymptomMatcher:
         if not norm:
             return SymptomMatch(raw, None, 0.0, "none")
 
+        # A named condition is never a symptom, however close it looks.
+        if norm in CONDITION_TERMS:
+            return SymptomMatch(raw, None, 0.0, "condition")
+
         # 1. exact (after normalization)
         if norm in self._normalized:
             return SymptomMatch(raw, self._normalized[norm], 100.0, "exact")
@@ -124,8 +157,17 @@ class SymptomMatcher:
             if canon in self.canonical:
                 return SymptomMatch(raw, canon, 100.0, "alias")
 
-        # 3. fuzzy fallback against canonical names
-        hit = process.extractOne(norm, self._choices, scorer=fuzz.WRatio)
+        # 3. fuzzy fallback against canonical names.
+        #
+        # fuzz.ratio, NOT fuzz.WRatio. WRatio's partial-match path returns 90 for
+        # any substring, and "hiv" is a substring of s-hiv-ering — so typing
+        # "hiv" silently resolved to the symptom "shivering" and was fed to the
+        # model as if the user had typed it, which is how AIDS surfaced in the
+        # results. Measured over 9 real typos and 9 disease-names/gibberish,
+        # WRatio cannot separate them at any threshold (both hit exactly 90),
+        # while ratio separates them by ~40 points: worst real typo 94.1,
+        # best junk match 54.5.
+        hit = process.extractOne(norm, self._choices, scorer=fuzz.ratio)
         if hit and hit[1] >= self.cutoff:
             return SymptomMatch(raw, self._normalized[hit[0]], float(hit[1]), "fuzzy")
 
@@ -135,9 +177,41 @@ class SymptomMatcher:
         return [self.match_one(r) for r in raws]
 
     def suggest(self, partial: str, limit: int = 8) -> list[str]:
-        """Autocomplete: canonical labels ranked by similarity to ``partial``."""
+        """Autocomplete: canonical labels the user could plausibly be typing.
+
+        Returns **nothing** when nothing plausibly matches. The previous version
+        called ``process.extract`` with no ``score_cutoff``, so it always
+        returned ``limit`` results no matter how bad: "xyzzy" offered
+        *dizziness*, "asdfgh" offered *skin rash*, "aids" offered *blackheads*.
+        It advertised terms its own matcher would then reject, which is how a
+        user ends up submitting a symptom they never meant.
+
+        Two ways to qualify, because autocomplete and resolution need different
+        rules — you are mid-word when you type, so a prefix is legitimate here
+        in a way it is not in ``match_one``:
+
+        1. the query begins a word in the label ("head" -> "headache").
+           Word-initial specifically: plain containment would re-admit
+           "hiv" -> "s-hiv-ering".
+        2. the whole query is a near-miss of the whole label, same scorer and
+           cutoff ``match_one`` uses, so autocomplete can never offer something
+           that would be rejected on submission ("vomitting" -> "vomiting").
+        """
         norm = normalize(partial)
         if not norm:
             return [humanize(c) for c in self.canonical[:limit]]
-        hits = process.extract(norm, self._choices, scorer=fuzz.WRatio, limit=limit)
-        return [humanize(self._normalized[h[0]]) for h in hits]
+        if norm in CONDITION_TERMS:
+            return []
+
+        prefix = [c for c in self._choices if _starts_a_word(c, norm)]
+
+        typo = [
+            hit[0]
+            for hit in process.extract(
+                norm, self._choices, scorer=fuzz.ratio,
+                limit=limit, score_cutoff=self.cutoff,
+            )
+        ]
+
+        ordered = prefix + [c for c in typo if c not in prefix]
+        return [humanize(self._normalized[c]) for c in ordered[:limit]]

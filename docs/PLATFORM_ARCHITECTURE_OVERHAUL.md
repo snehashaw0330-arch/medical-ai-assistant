@@ -236,7 +236,58 @@ Each phase ends green: `make lint`, `make test`, and (from Phase 0) `make test-u
 
 **Exit:** 28 pages → 21 with no capability lost; redirects hold; tests green.
 
-### Phase 4 — TanStack Query migration
+### Phase 4 — Clinical correctness & honesty
+
+Added 2026-08-02 after an audit of the running system, and placed **ahead of the remaining
+refactoring**: everything below can mislead a user about their health, which outranks code
+structure. The later phases shift down by one (TanStack becomes 5, backend 6, hardening 7).
+
+**4.1 — Symptom resolution stops guessing.** Typing `hiv` currently resolves to the symptom
+**`shivering`** (score 90, cutoff 82) and is fed to the model as if the user had typed it;
+`AIDS` then appears in the results. The cause is `fuzz.WRatio`, whose partial-match path
+returns 90 for any substring — and "hiv" is a substring of s-**hiv**-ering.
+
+Measured across 9 legitimate typos and 9 disease-names/gibberish:
+
+| scorer | worst legitimate typo | best junk match | separable? |
+|---|---|---|---|
+| `WRatio` (current) | 78.8 | **90.0** (`hiv`→shivering, `flu`→fluid overload) | **no** |
+| `ratio` | 94.1 | 54.5 (`aids`→acidity) | **yes, by ~40 points** |
+
+So: `match_one` switches to `fuzz.ratio`, keeping the 82 cutoff. No threshold on `WRatio`
+can work — every real prefix also scores exactly 90.
+
+**4.2 — Autocomplete stops inventing symptoms.** `symptoms.suggest()` calls
+`process.extract` with **no `score_cutoff` at all**, so it always returns 8 results however
+bad: `xyzzy` → *dizziness*, `asdfgh` → *skin rash*, `aids` → *blackheads*. It offers terms
+its own matcher would reject. Replaced with word-boundary prefix matching plus
+typo-tolerant `ratio` matching, so a query that matches nothing returns nothing.
+
+**4.3 — The user is told when their input was changed.** A fuzzy match is a guess and must
+read as one. The API already returns `resolved_symptoms` with `method` and `score`; the UI
+must surface "we read *hiv* as *shivering*" and let it be dismissed, and must show
+unmatched inputs rather than dropping them silently.
+
+**4.4 — The model declines to rank when there is no signal.** `headache` alone currently
+returns *"Paralysis (brain hemorrhage)"* at 22.85%. Below a floor, return no ranked list at
+all. The explanation template also asserts a relationship the model never established
+("Your reported high fever is commonly seen in AIDS") and must be reworded as association,
+not inference.
+
+**4.5 — Model integrity.** The classifier is unpickled by a different scikit-learn than
+trained it (1.7.2 vs 1.9.0); sklearn warns this "might lead to breaking code or invalid
+results". Pin or re-fit. Also fix the user-visible label typo
+`(vertigo) Paroymsal  Positional Vertigo`.
+
+**4.6 — Delete fabricated UI data.** `Dashboard.jsx` renders a hardcoded 7-point array as
+an activity chart beside a hardcoded `+18%` trend badge. Invented numbers next to real ones
+discredit both.
+
+**Exit:** typing a disease name or gibberish yields no symptom and says so; a single vague
+symptom produces no ranked diagnosis; no fabricated values anywhere in the UI; backend tests
+covering the reject-list above (making `disease/` the fourth tested module).
+
+### Phase 5 — TanStack Query migration
 
 Migrate in ascending risk order:
 1. read-only (`AuditLogs`, `ModelRegistry`, `DatasetRegistry`, `PipelineViewer`, `Dashboard`)
@@ -281,11 +332,12 @@ pediatric baseline (risk `moderate` / 51.0, infant red flag).
 | 2 — route table & sidebar | **done** | `c962196` | 150 tests; 8/8 caught; 27 → 7 sidebar rows |
 | 3a — features tree | **done** | `4b5a026` | 161 tests; 4/4 caught; 0 cross-feature imports |
 | 3b — tabbed merges | **done** | `868e0a3` | 166 tests; 6/6 caught; Knowledge 5 → 3 rows |
+| 4 — clinical correctness | **done** | | 15 new backend tests; 7/7 mutations caught |
 | 3c — governance shell | **not started** | | see note below |
 | 3d — Chat into Copilot, shared FileIntake | **not started** | | |
-| 4 — TanStack Query migration | **not started** | | the 202 `useState` calls are untouched |
-| 5 — backend consolidation | **not started** | | 16 duplicated engine blocks untouched |
-| 6 — coverage & hardening | **not started** | | incl. the parked npm audit bumps |
+| 5 — TanStack Query migration | **not started** | | the 202 `useState` calls are untouched |
+| 6 — backend consolidation | **not started** | | 16 duplicated engine blocks untouched |
+| 7 — coverage & hardening | **not started** | | incl. the parked npm audit bumps |
 
 All work is on the `architecture-overhaul` branch; `main` is untouched.
 

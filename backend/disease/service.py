@@ -35,6 +35,11 @@ DISCLAIMER = (
     "qualified doctor."
 )
 
+# Below either of these the service returns no ranked predictions at all.
+# See the refusal branch in `predict` for why there are two.
+MIN_SYMPTOMS = 2
+MIN_TOP_PROBABILITY = 0.15
+
 
 class DiseaseService:
     def __init__(self, bundle_path: Path = BUNDLE_PATH):
@@ -73,9 +78,14 @@ class DiseaseService:
         typical = [humanize(s) for s, p in scored if p >= 0.5]
         name = self.classes[disease_idx]
         if typical:
+            # Phrased as overlap, not inference. The previous wording — "Your
+            # reported high fever is commonly seen in AIDS" — asserted a
+            # clinical relationship the model never established; it is only
+            # reporting which of the reported symptoms co-occur with the label
+            # in the training data.
             text = (
-                f"Your reported {', '.join(typical[:4])} "
-                f"{'is' if len(typical) == 1 else 'are'} commonly seen in {name}."
+                f"{name} lists {', '.join(typical[:4])} among its common symptoms. "
+                "This is a symptom overlap, not a diagnosis."
             )
         else:
             text = f"Weak symptom overlap with {name}; treat this match cautiously."
@@ -111,21 +121,77 @@ class DiseaseService:
         unmatched = [m.input for m in matches if not m.matched]
 
         warnings: list[str] = []
+
+        # Naming a condition is a different mistake from typing something
+        # unrecognisable, and deserves a different answer. "None of the
+        # symptoms were recognised" invites the user to rephrase "AIDS" until
+        # something sticks — which is how they got an AIDS result in the first
+        # place.
+        conditions = [m.input for m in matches if m.method == "condition"]
+        if conditions:
+            warnings.append(
+                f"{', '.join(conditions)} "
+                f"{'is a condition' if len(conditions) == 1 else 'are conditions'}, "
+                "not a symptom. Describe what you are feeling instead — "
+                "this tool works out possible conditions from symptoms."
+            )
+
+        # A fuzzy match is a guess, so say so rather than silently substituting.
+        guesses = [
+            f"“{m.input}” as “{humanize(m.matched)}”"
+            for m in matches
+            if m.method == "fuzzy"
+        ]
+        if guesses:
+            warnings.append(f"Interpreted {', '.join(guesses)}.")
+
         if not matched_canon:
             return DiseaseResponse(
                 predictions=[], resolved_symptoms=resolved, unmatched_inputs=unmatched,
                 suggested_symptoms=[], confidence_level="low",
-                warnings=["None of the symptoms were recognised. Try rephrasing."],
+                warnings=warnings or ["None of the symptoms were recognised. Try rephrasing."],
                 disclaimer=DISCLAIMER,
             )
+        proba = self.model.predict_proba([self._vector(matched_canon)])[0]
+        order = proba.argsort()[::-1][:top_k]
+        top = float(proba[order[0]])
+
+        # Refuse to rank rather than produce a confident-looking answer from
+        # nothing. A single symptom used to return "Paralysis (brain
+        # haemorrhage), 22.85%" for a lone headache — a ranked list with a
+        # percentage reads as a diagnosis no matter what caveat sits above it.
+        #
+        # Two independent floors, because they catch different failures: one
+        # symptom is never enough to discriminate 41 conditions however sharp
+        # the probability looks, and a flat distribution means no signal even
+        # when several symptoms were given. The bar is deliberately low —
+        # measured, realistic 5-symptom inputs land at 27-38%, so anything
+        # stricter would suppress legitimate queries.
+        if len(matched_canon) < MIN_SYMPTOMS or top < MIN_TOP_PROBABILITY:
+            reason = (
+                f"A single symptom cannot distinguish between {len(self.classes)} "
+                "conditions. Add at least one more."
+                if len(matched_canon) < MIN_SYMPTOMS
+                else "These symptoms are too general to point anywhere in particular."
+            )
+            return DiseaseResponse(
+                predictions=[],
+                resolved_symptoms=resolved,
+                unmatched_inputs=unmatched,
+                suggested_symptoms=self._suggest(int(order[0]), set(matched_canon)),
+                confidence_level="low",
+                # Prepend, don't replace: the user still needs to be told that
+                # "hiv" was dropped as a condition, which is usually the very
+                # reason too few symptoms were left to assess.
+                warnings=[f"No assessment produced. {reason}", *warnings],
+                disclaimer=DISCLAIMER,
+            )
+
         if len(matched_canon) < 3:
             warnings.append(
                 "Few symptoms provided — predictions are less reliable. "
                 "Add more symptoms for a better assessment."
             )
-
-        proba = self.model.predict_proba([self._vector(matched_canon)])[0]
-        order = proba.argsort()[::-1][:top_k]
 
         predictions: list[DiseasePrediction] = []
         for idx in order:
