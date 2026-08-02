@@ -28,7 +28,7 @@ import Button from '@/ui/Button'
 import Badge from '@/ui/Badge'
 import TagInput from '@/ui/TagInput'
 import ConfidenceBar from '@/ui/ConfidenceBar'
-import ReasoningPipeline from '@/ui/ReasoningPipeline'
+import ReasoningPipeline from '@/shared/reports/ReasoningPipeline'
 import {
   copilotAnalyze,
   copilotChat,

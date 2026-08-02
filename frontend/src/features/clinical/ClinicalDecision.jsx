@@ -14,7 +14,7 @@ import Button from '@/ui/Button'
 import Badge from '@/ui/Badge'
 import TagInput from '@/ui/TagInput'
 import EmptyState from '@/ui/EmptyState'
-import ClinicalReport from '@/ui/ClinicalReport'
+import ClinicalReport from '@/shared/reports/ClinicalReport'
 import {
   analyzeClinical,
   getSymptoms,

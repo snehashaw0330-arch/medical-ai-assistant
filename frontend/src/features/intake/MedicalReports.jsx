@@ -23,7 +23,7 @@ import Card, { CardHeader } from '@/ui/Card'
 import Button from '@/ui/Button'
 import Badge from '@/ui/Badge'
 import EmptyState from '@/ui/EmptyState'
-import ReportViewer from '@/ui/ReportViewer'
+import ReportViewer from '@/shared/reports/ReportViewer'
 import {
   getReports,
   getReportStats,

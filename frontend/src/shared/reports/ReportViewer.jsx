@@ -16,8 +16,8 @@ import {
 import Card, { CardHeader } from '@/ui/Card'
 import Badge from '@/ui/Badge'
 import Accordion from '@/ui/Accordion'
-import ClinicalReport from '@/ui/ClinicalReport'
-import DrugInteractionReport from '@/ui/DrugInteractionReport'
+import ClinicalReport from '@/shared/reports/ClinicalReport'
+import DrugInteractionReport from '@/shared/reports/DrugInteractionReport'
 import { reportImageUrl } from '@/lib/api'
 import { titleCase, confidenceColor, pct, formatDate, isIdentified } from '@/lib/utils'
 

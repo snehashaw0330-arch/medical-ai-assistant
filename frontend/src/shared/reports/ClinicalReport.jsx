@@ -17,7 +17,7 @@ import {
 import Card, { CardHeader } from '@/ui/Card'
 import Badge from '@/ui/Badge'
 import Accordion from '@/ui/Accordion'
-import DrugInteractionReport from '@/ui/DrugInteractionReport'
+import DrugInteractionReport from '@/shared/reports/DrugInteractionReport'
 import { titleCase } from '@/lib/utils'
 
 /**

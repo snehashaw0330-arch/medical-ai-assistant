@@ -3,7 +3,7 @@ import { Navigate, Route, Routes } from 'react-router-dom'
 import AppLayout from './layout/AppLayout'
 import { LEGACY_REDIRECTS, ROUTES } from './app/routes'
 
-const NotFound = lazy(() => import('./pages/NotFound'))
+const NotFound = lazy(() => import('./app/NotFound'))
 
 /**
  * The router is generated from `app/routes.jsx` rather than hand-written, so the

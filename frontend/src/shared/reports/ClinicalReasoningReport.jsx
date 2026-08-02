@@ -20,7 +20,7 @@ import {
 } from 'lucide-react'
 import Card, { CardHeader } from '@/ui/Card'
 import Badge from '@/ui/Badge'
-import ReasoningPipeline from '@/ui/ReasoningPipeline'
+import ReasoningPipeline from '@/shared/reports/ReasoningPipeline'
 import ConfidenceMeter from '@/ui/ConfidenceMeter'
 import { titleCase, formatDate } from '@/lib/utils'
 

@@ -13,8 +13,8 @@ import Button from '@/ui/Button'
 import Badge from '@/ui/Badge'
 import TagInput from '@/ui/TagInput'
 import EmptyState from '@/ui/EmptyState'
-import ReasoningPipeline from '@/ui/ReasoningPipeline'
-import ClinicalReasoningReport from '@/ui/ClinicalReasoningReport'
+import ReasoningPipeline from '@/shared/reports/ReasoningPipeline'
+import ClinicalReasoningReport from '@/shared/reports/ClinicalReasoningReport'
 import {
   analyzeReasoning,
   getReasoningPipeline,

@@ -11,7 +11,7 @@ import Card, { CardHeader } from '@/ui/Card'
 import Button from '@/ui/Button'
 import Badge from '@/ui/Badge'
 import EmptyState from '@/ui/EmptyState'
-import EvidenceVerificationPanel from '@/ui/EvidenceVerificationPanel'
+import EvidenceVerificationPanel from '@/shared/reports/EvidenceVerificationPanel'
 import { checkVerification, getVerificationHistory, getVerificationReport } from '@/lib/api'
 import { errorMessage, formatDate } from '@/lib/utils'
 
