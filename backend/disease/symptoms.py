@@ -112,12 +112,24 @@ def humanize(canonical: str) -> str:
     return canonical.replace("_", " ").strip()
 
 
+# Function words that begin a word inside real symptom labels ("cold hands
+# *and* feets") without carrying any intent. Nobody searching for a symptom
+# types these.
+_STOPWORDS = {"and", "or", "of", "the", "a", "an", "in", "on", "with", "to",
+              "for", "at", "by", "is", "it"}
+
+
 def _starts_a_word(label: str, query: str) -> bool:
     """True when ``query`` begins ``label`` or any word inside it.
 
     Word-initial rather than plain containment: "hiv" is contained in
     "shivering", and treating that as a match is exactly the bug this guards.
+    Stopwords are excluded because they pass the word-initial test honestly —
+    "and" really does begin a word in "cold hands and feets" — while meaning
+    nothing as a query.
     """
+    if query in _STOPWORDS:
+        return False
     return label.startswith(query) or f" {query}" in f" {label}"
 
 

@@ -20,6 +20,11 @@ from dataclasses import dataclass
 
 from rapidfuzz import fuzz, process
 
+# One shared vocabulary guard rather than a second copy that can drift out of
+# sync with the first — this module and backend.disease resolve the same user
+# input on two different pages.
+from backend.disease.symptoms import CONDITION_TERMS, _starts_a_word
+
 # ==========================================================================
 # Categorized catalog (Requirement 3) — the nine required groups.
 # Canonical symptom names are lower-case and, where possible, match the
@@ -218,6 +223,10 @@ class SymptomMatcher:
         if not norm:
             return MatchResult(symptom, None, None, 0.0, "none")
 
+        # A named condition is never a symptom, however close it looks.
+        if norm in CONDITION_TERMS:
+            return MatchResult(symptom, None, None, 0.0, "condition")
+
         # Exact catalog hit.
         if norm in self._symptom_to_category:
             return MatchResult(symptom, norm, self._symptom_to_category[norm], 100.0, "exact")
@@ -228,7 +237,13 @@ class SymptomMatcher:
             return MatchResult(symptom, canon, self._symptom_to_category.get(canon), 98.0, "synonym")
 
         # Fuzzy against the catalog.
-        best = process.extractOne(norm, self._all, scorer=fuzz.WRatio)
+        #
+        # fuzz.ratio, NOT fuzz.WRatio: WRatio's partial-match path returns 90
+        # for any substring, so "hiv" resolved to "shivering" (s-hiv-ering) and
+        # was fed onward as a symptom the user never reported. Same defect and
+        # same fix as backend/disease/symptoms.py — see
+        # backend/disease/tests/test_symptom_matching.py for the measurements.
+        best = process.extractOne(norm, self._all, scorer=fuzz.ratio)
         if best and best[1] >= MATCH_THRESHOLD:
             canon = best[0]
             return MatchResult(symptom, canon, self._symptom_to_category.get(canon),
@@ -252,13 +267,25 @@ class SymptomMatcher:
         q = normalize(query)
         if not q:
             return []
-        contains = [s for s in self._all if q in s]
+        if q in CONDITION_TERMS:
+            return []
+
+        # Word-initial, not plain containment: `q in s` matched "hiv" inside
+        # "shivering", which is the same defect the fuzzy path had.
+        contains = [s for s in self._all if _starts_a_word(s, q)]
         if len(contains) >= limit:
             return contains[:limit]
-        # Top up with fuzzy matches not already included.
+
+        # Top up with typo-tolerant matches, at the threshold `match` itself
+        # uses so autocomplete can never advertise something that would then be
+        # rejected on submission. The old floor of 70 sat below MATCH_THRESHOLD.
         extra = [
-            name for name, score, _ in process.extract(q, self._all, scorer=fuzz.WRatio, limit=limit)
-            if score >= 70 and name not in contains
+            name
+            for name, score, _ in process.extract(
+                q, self._all, scorer=fuzz.ratio, limit=limit,
+                score_cutoff=MATCH_THRESHOLD,
+            )
+            if name not in contains
         ]
         return (contains + extra)[:limit]
 

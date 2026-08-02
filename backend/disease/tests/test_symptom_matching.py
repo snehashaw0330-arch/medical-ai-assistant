@@ -165,6 +165,65 @@ def test_accidental_substrings_do_not_resolve():
     )
 
 
+# ---------------------------------------------------------------------------
+# The same input reaches the model through TWO matchers: backend/disease (the
+# Disease Prediction page) and backend/symptom_checker (the Symptom Checker
+# page). Both had the identical WRatio defect, so both are pinned here —
+# fixing one and shipping the other is exactly how this bug survives.
+# ---------------------------------------------------------------------------
+
+def test_symptom_checker_matcher_rejects_conditions_too():
+    from backend.symptom_checker.symptom_matcher import get_matcher
+    matcher = get_matcher()
+    wrong = {
+        q: matcher.match(q).matched
+        for q in NOT_SYMPTOMS
+        if matcher.match(q).matched is not None
+    }
+    assert not wrong, f"symptom-checker matcher resolved: {wrong}"
+
+
+def test_symptom_checker_matcher_rejects_substrings_too():
+    from backend.symptom_checker.symptom_matcher import get_matcher
+    matcher = get_matcher()
+    wrong = {
+        q: matcher.match(q).matched
+        for q in SUBSTRING_TRAPS
+        if matcher.match(q).matched is not None
+    }
+    assert not wrong, f"symptom-checker matcher resolved substrings: {wrong}"
+
+
+def test_symptom_checker_autocomplete_offers_nothing_for_a_non_symptom():
+    from backend.symptom_checker.symptom_matcher import get_matcher
+    matcher = get_matcher()
+    # SUBSTRING_TRAPS matter as much as NOT_SYMPTOMS here: the condition
+    # stop-list catches the latter before autocomplete's matching logic runs,
+    # so on their own they cannot detect a regression to plain `q in s`
+    # containment — which is what admitted "hiv" inside "shivering".
+    noisy = {
+        q: matcher.suggest(q, 8)
+        for q in NOT_SYMPTOMS + SUBSTRING_TRAPS
+        if matcher.suggest(q, 8)
+    }
+    assert not noisy, f"symptom-checker autocomplete invented: {noisy}"
+
+
+def test_symptom_checker_names_a_condition_as_such():
+    # Not merely "unrecognised": the user needs to know their input was a
+    # condition, or they will just reword it until something sticks.
+    from backend.symptom_checker.symptom_matcher import get_matcher
+    assert get_matcher().match("aids").method == "condition"
+    assert get_matcher().match("hiv").method == "condition"
+
+
+def test_symptom_checker_still_resolves_real_input():
+    from backend.symptom_checker.symptom_matcher import get_matcher
+    matcher = get_matcher()
+    for typed in ["head ache", "vomitting", "high feaver", "chest pain"]:
+        assert matcher.match(typed).matched is not None, f"{typed!r} stopped resolving"
+
+
 def _run() -> int:
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
     failed = 0

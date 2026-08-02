@@ -184,7 +184,27 @@ class SymptomCheckerService:
         canonical = [m.matched for m in matches if m.matched]
         categories = [m.category for m in matches if m.matched]
         unmatched = [m.input for m in matches if not m.matched]
-        if not canonical:
+
+        # Naming a condition is a different mistake from typing something
+        # unrecognisable, and the generic "try rephrasing" invites the user to
+        # keep rewording "AIDS" until something sticks.
+        conditions_named = [m.input for m in matches if m.method == "condition"]
+        if conditions_named:
+            warnings.append(
+                f"{', '.join(conditions_named)} "
+                f"{'is a condition' if len(conditions_named) == 1 else 'are conditions'}, "
+                "not a symptom. Describe what you are feeling instead."
+            )
+
+        # A fuzzy match is a guess; substituting one silently is how a user ends
+        # up assessed on a symptom they never reported.
+        guesses = [
+            f"“{m.input}” as “{m.matched}”" for m in matches if m.method == "fuzzy"
+        ]
+        if guesses:
+            warnings.append(f"Interpreted {', '.join(guesses)}.")
+
+        if not canonical and not conditions_named:
             warnings.append(
                 "None of the symptoms were recognised — try rephrasing or picking "
                 "from the categorized list."
