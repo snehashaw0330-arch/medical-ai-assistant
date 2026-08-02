@@ -274,12 +274,30 @@ pediatric baseline (risk `moderate` / 51.0, infant red flag).
 
 ## 3a. Progress
 
-| phase | state | evidence |
-|---|---|---|
-| 0 — baselines & safety net | **done** 2026-08-02 | 62 frontend tests; 5/5 mutations caught |
-| 1 — frontend foundation | **done** 2026-08-02 | 88 frontend tests; app chunk 1,070 → 326 kB |
-| 2 — route table & sidebar | **done** 2026-08-02 | 150 frontend tests; 8/8 mutations caught; 27 → 7 sidebar rows |
-| 3–6 | not started | |
+| phase | state | commit | evidence |
+|---|---|---|---|
+| 0 — baselines & safety net | **done** | `1cf8444` | 62 tests; 5/5 mutations caught |
+| 1 — frontend foundation | **done** | `158c70b` | 88 tests; 11/11 caught; app chunk 1,070 → 326 kB |
+| 2 — route table & sidebar | **done** | `e781062` | 150 tests; 8/8 caught; 27 → 7 sidebar rows |
+| 3a — features tree | **done** | `3c2a6e4` | 161 tests; 4/4 caught; 0 cross-feature imports |
+| 3b — tabbed merges | **done** | `e6f1811` | 166 tests; 6/6 caught; Knowledge 5 → 3 rows |
+| 3c — governance shell | **not started** | | see note below |
+| 3d — Chat into Copilot, shared FileIntake | **not started** | | |
+| 4 — TanStack Query migration | **not started** | | the 202 `useState` calls are untouched |
+| 5 — backend consolidation | **not started** | | 16 duplicated engine blocks untouched |
+| 6 — coverage & hardening | **not started** | | incl. the parked npm audit bumps |
+
+All work is on the `architecture-overhaul` branch; `main` is untouched.
+
+**Note on 3c.** Phase 2 already collapsed the five governance pages into one collapsible
+sidebar group, which is most of what the tabbed shell was for. What remains is shared chrome
+(one header, one data fetch) across the seven governance routes — worth doing, but no longer
+urgent, and it should use the same `tabGroup` mechanism 3b introduced rather than a bespoke
+shell.
+
+Each phase is mutation-tested, not just run: the suite is re-verified by deliberately
+breaking things and confirming it fails. **34 mutations introduced across five phases, 34
+caught** — three of them only after a gap in the tests was found and closed.
 
 Each phase is mutation-tested, not just run: the suite is re-verified by deliberately
 breaking things and confirming it fails. Two gaps were found and closed this way rather
