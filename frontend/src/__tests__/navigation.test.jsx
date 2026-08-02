@@ -1,11 +1,11 @@
 import { describe, expect, it, vi } from 'vitest'
 import { screen, within } from '@testing-library/react'
 import { NAV_ITEMS } from '@/layout/nav'
-import { buildApiMock } from '@/test/apiMock'
+import { buildClientMock } from '@/test/apiMock'
 import { collectRealRoutePaths } from '@/test/routeInventory'
-import { renderRoute } from '@/test/renderRoute'
+import { renderRoute, waitForRoute } from '@/test/renderRoute'
 
-vi.mock('@/lib/api', async (importOriginal) => buildApiMock(importOriginal))
+vi.mock('@/shared/api/client', () => buildClientMock())
 
 describe('navigation contract', () => {
   const routes = new Set(collectRealRoutePaths())
@@ -42,8 +42,9 @@ describe('navigation contract', () => {
   // page. Asserting per entry pins the behaviour before the sidebar is rebuilt.
   it.each(NAV_ITEMS.map((i) => [i.to, i.label]))(
     '%s titles the page "%s"',
-    (to, label) => {
+    async (to, label) => {
       renderRoute(to)
+      await waitForRoute()
       // Scoped to the topbar: several pages repeat their own name in an <h1>,
       // and it is the topbar's resolution that is under test here.
       const header = within(screen.getByRole('banner'))

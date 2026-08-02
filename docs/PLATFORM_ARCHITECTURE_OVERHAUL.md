@@ -210,10 +210,14 @@ Each phase ends green: `make lint`, `make test`, and (from Phase 0) `make test-u
   ErrorBoundary.
 * Split `lib/api.js` into `shared/api/<domain>.js` behind a barrel re-export, so no page
   changes in this phase.
-* Move domain report components out of `ui/` into their features; `ui/` becomes primitives.
 * Lazy-load all routes with a Suspense skeleton.
 
 **Exit:** lint + both test suites green; per-route chunks in the build; UI byte-identical.
+
+> **Sequencing change, 2026-08-02.** Moving the domain report components out of `ui/` was
+> listed here; it moved to Phase 3. Their destination is the `features/` tree, which Phase 3
+> creates when the pages themselves move — doing it in Phase 1 would move the same files
+> twice. `ui/` therefore still mixes primitives and domain components until Phase 3.
 
 ### Phase 2 — Route table and sidebar *(the compaction)*
 
@@ -267,6 +271,32 @@ pediatric baseline (risk `moderate` / 51.0, infant red flag).
 **Exit:** coverage numbers recorded in this document.
 
 ---
+
+## 3a. Progress
+
+| phase | state | evidence |
+|---|---|---|
+| 0 — baselines & safety net | **done** 2026-08-02 | 62 frontend tests; 5/5 mutations caught |
+| 1 — frontend foundation | **done** 2026-08-02 | 88 frontend tests; app chunk 1,070 → 326 kB |
+| 2–6 | not started | |
+
+Each phase is mutation-tested, not just run: the suite is re-verified by deliberately
+breaking things and confirming it fails. Two gaps were found and closed this way rather
+than by inspection.
+
+* **Phase 1 hid page crashes.** The new per-route error boundary swallowed a throwing page,
+  so the route tests went green on a broken app. Fixed by asserting no boundary is showing
+  (`queryByRole('alert')`) and by waiting for the lazy chunk before asserting anything —
+  without the wait, every assertion ran against the Suspense fallback.
+* **The barrel could silently lose a whole domain.** Deleting one
+  `export * from '@/shared/api/<domain>'` line passed all 62 tests: most pages catch their
+  own fetch errors into a toast, so an endpoint that became `undefined` never reached a
+  boundary. Closed by `apiSurface.test.js`, which discovers the domain modules with
+  `import.meta.glob` and asserts the barrel re-exports all of them.
+
+Also fixed while verifying: the API mock originally faked `@/lib/api`, which any page could
+have escaped by importing a domain module directly. It now fakes the shared axios instance
+instead, so all 23 domain modules run their real code and no import path can bypass it.
 
 ## 4. Risks
 

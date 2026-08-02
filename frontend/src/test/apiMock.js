@@ -1,23 +1,28 @@
 import { vi } from 'vitest'
 
 /**
- * Auto-mock for the API layer.
+ * Fake the network, not the API layer.
  *
- * Built by reflecting over the *real* module's exports rather than listing them,
- * so it keeps working when `lib/api.js` is split into per-domain modules. Any
- * endpoint added later is mocked the moment it exists — a test can never pass
- * because it silently missed a new network call.
+ * The mock replaces the shared axios instance in `shared/api/client.js`, so all
+ * 23 domain modules run their real code — URL building, param cleaning, response
+ * unwrapping — and simply never reach a server.
  *
- * Resolution rules, in order:
- *   1. an explicit entry in RESPONSES (only where a page needs a real shape)
- *   2. `*Url` helpers      -> a stub string
- *   3. `fetch*Blob` helpers -> an empty Blob
- *   4. everything else      -> LIST_SHAPE, which satisfies both `res.items.map`
- *      and `res.total` style readers without enumerating 93 endpoints.
+ * The alternative, mocking `@/lib/api`, was import-path dependent: the first
+ * page to import `@/shared/api/history` directly would have quietly escaped the
+ * mock and started making real requests inside the test run. Mocking one axios
+ * instance cannot be bypassed that way.
  */
 
-// Generic envelope: every list key a page might destructure, all empty.
-const LIST_SHAPE = () => ({
+// A generic envelope carrying every list key a response might be unwrapped
+// into, all empty. Domain modules do `data.medicines ?? []`, so this satisfies
+// them without enumerating 93 endpoints.
+//
+// Returned as an *empty array with these keys attached*, because the backend
+// mixes both response shapes: `/history` returns an object to destructure while
+// `/digital-twin/patients` is declared `response_model=list[...]` and returns a
+// bare array the page calls `.map` on. One value that answers to both means the
+// mock never has to know which endpoint is which.
+const ENVELOPE = () => ({
   items: [],
   results: [],
   history: [],
@@ -26,6 +31,7 @@ const LIST_SHAPE = () => ({
   logs: [],
   medicines: [],
   symptoms: [],
+  suggestions: [],
   sources: [],
   citations: [],
   warnings: [],
@@ -41,43 +47,32 @@ const LIST_SHAPE = () => ({
   interactions: [],
   traces: [],
   stages: [],
+  messages: [],
   total: 0,
   count: 0,
+  status: 'ok',
 })
 
-// Endpoints whose page reads a shape the generic envelope cannot satisfy.
-// Keep this list short — each entry is a page coupling worth knowing about.
-const RESPONSES = {
-  getSymptoms: () => [],
-  getSymptomCatalog: () => [],
-  suggestSymptoms: () => [],
-  suggestSymptomTerms: () => [],
-  getHistoryMedicines: () => [],
-  getDigitalTwinPatients: () => [],
-  listPatientContexts: () => [],
-  getAgentRegistry: () => [],
-  getGovernanceModels: () => [],
-  getGovernanceDatasets: () => [],
-  getHealth: () => ({ status: 'ok' }),
-}
+export const LIST_SHAPE = () => Object.assign([], ENVELOPE())
 
-export async function buildApiMock(importOriginal) {
-  const actual = await importOriginal()
-  const mock = {}
+/** Drop-in replacement for the `shared/api/client` module. */
+export function buildClientMock() {
+  const respond = vi.fn(async () => ({ data: LIST_SHAPE() }))
 
-  for (const [name, value] of Object.entries(actual)) {
-    if (typeof value !== 'function') {
-      mock[name] = value // constants such as OCR_TIMEOUT pass through
-      continue
-    }
-    if (name.endsWith('Url')) {
-      mock[name] = vi.fn(() => `/stub/${name}`)
-    } else if (/^fetch.*Blob$/.test(name)) {
-      mock[name] = vi.fn(async () => new Blob(['stub']))
-    } else {
-      const shape = RESPONSES[name] ?? LIST_SHAPE
-      mock[name] = vi.fn(async () => shape())
-    }
-  }
-  return mock
+  // axios instances are callable as well as having verb methods.
+  const API = Object.assign(vi.fn(respond), {
+    get: vi.fn(respond),
+    post: vi.fn(respond),
+    put: vi.fn(respond),
+    patch: vi.fn(respond),
+    delete: vi.fn(respond),
+    // The `*Url` helpers read this to build absolute links.
+    defaults: { baseURL: 'http://api.test' },
+    interceptors: {
+      request: { use: vi.fn() },
+      response: { use: vi.fn() },
+    },
+  })
+
+  return { API, OCR_TIMEOUT: 300_000 }
 }

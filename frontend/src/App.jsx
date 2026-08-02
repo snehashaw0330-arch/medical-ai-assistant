@@ -1,33 +1,37 @@
+import { lazy } from 'react'
 import { Routes, Route } from 'react-router-dom'
 import AppLayout from './layout/AppLayout'
-import Dashboard from './pages/Dashboard'
-import DiseasePrediction from './pages/DiseasePrediction'
-import SymptomChecker from './pages/SymptomChecker'
-import PrescriptionOCR from './pages/PrescriptionOCR'
-import DocumentIntelligence from './pages/DocumentIntelligence'
-import ClinicalDecision from './pages/ClinicalDecision'
-import ClinicalReasoning from './pages/ClinicalReasoning'
-import CopilotWorkspace from './pages/CopilotWorkspace'
-import TreatmentSimulator from './pages/TreatmentSimulator'
-import EvidenceVerification from './pages/EvidenceVerification'
-import EvidenceExplorer from './pages/EvidenceExplorer'
-import MedicalReports from './pages/MedicalReports'
-import PrescriptionHistory from './pages/PrescriptionHistory'
-import DatasetEvaluation from './pages/DatasetEvaluation'
-import KnowledgeBase from './pages/KnowledgeBase'
-import MedicineSearch from './pages/MedicineSearch'
-import MedicineRecommendations from './pages/MedicineRecommendations'
-import AgentMonitor from './pages/AgentMonitor'
-import DigitalTwin from './pages/DigitalTwin'
-import PatientContext from './pages/PatientContext'
-import AIGovernance from './pages/AIGovernance'
-import ModelRegistry from './pages/ModelRegistry'
-import DatasetRegistry from './pages/DatasetRegistry'
-import AuditLogs from './pages/AuditLogs'
-import PipelineViewer from './pages/PipelineViewer'
-import Chat from './pages/Chat'
-import Profile from './pages/Profile'
-import NotFound from './pages/NotFound'
+
+// Every page is code-split. Before this, all 28 pages shipped in one 1.07 MB
+// chunk that had to parse before the dashboard could paint.
+const Dashboard = lazy(() => import('./pages/Dashboard'))
+const DiseasePrediction = lazy(() => import('./pages/DiseasePrediction'))
+const SymptomChecker = lazy(() => import('./pages/SymptomChecker'))
+const PrescriptionOCR = lazy(() => import('./pages/PrescriptionOCR'))
+const DocumentIntelligence = lazy(() => import('./pages/DocumentIntelligence'))
+const ClinicalDecision = lazy(() => import('./pages/ClinicalDecision'))
+const ClinicalReasoning = lazy(() => import('./pages/ClinicalReasoning'))
+const CopilotWorkspace = lazy(() => import('./pages/CopilotWorkspace'))
+const TreatmentSimulator = lazy(() => import('./pages/TreatmentSimulator'))
+const EvidenceVerification = lazy(() => import('./pages/EvidenceVerification'))
+const EvidenceExplorer = lazy(() => import('./pages/EvidenceExplorer'))
+const MedicalReports = lazy(() => import('./pages/MedicalReports'))
+const PrescriptionHistory = lazy(() => import('./pages/PrescriptionHistory'))
+const DatasetEvaluation = lazy(() => import('./pages/DatasetEvaluation'))
+const KnowledgeBase = lazy(() => import('./pages/KnowledgeBase'))
+const MedicineSearch = lazy(() => import('./pages/MedicineSearch'))
+const MedicineRecommendations = lazy(() => import('./pages/MedicineRecommendations'))
+const AgentMonitor = lazy(() => import('./pages/AgentMonitor'))
+const DigitalTwin = lazy(() => import('./pages/DigitalTwin'))
+const PatientContext = lazy(() => import('./pages/PatientContext'))
+const AIGovernance = lazy(() => import('./pages/AIGovernance'))
+const ModelRegistry = lazy(() => import('./pages/ModelRegistry'))
+const DatasetRegistry = lazy(() => import('./pages/DatasetRegistry'))
+const AuditLogs = lazy(() => import('./pages/AuditLogs'))
+const PipelineViewer = lazy(() => import('./pages/PipelineViewer'))
+const Chat = lazy(() => import('./pages/Chat'))
+const Profile = lazy(() => import('./pages/Profile'))
+const NotFound = lazy(() => import('./pages/NotFound'))
 
 export default function App() {
   return (

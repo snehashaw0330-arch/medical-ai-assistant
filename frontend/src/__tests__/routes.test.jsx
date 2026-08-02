@@ -1,10 +1,10 @@
 import { describe, expect, it, vi } from 'vitest'
-import { screen, waitFor } from '@testing-library/react'
-import { buildApiMock } from '@/test/apiMock'
+import { screen } from '@testing-library/react'
+import { buildClientMock } from '@/test/apiMock'
 import { collectRealRoutePaths, collectRoutePaths } from '@/test/routeInventory'
-import { NOT_FOUND_MARKER, renderRoute } from '@/test/renderRoute'
+import { NOT_FOUND_MARKER, renderRoute, waitForRoute } from '@/test/renderRoute'
 
-vi.mock('@/lib/api', async (importOriginal) => buildApiMock(importOriginal))
+vi.mock('@/shared/api/client', () => buildClientMock())
 
 /**
  * The safety net for the IA overhaul. Everything downstream — regrouping the
@@ -35,13 +35,26 @@ describe('route inventory', () => {
     // The app chrome rendered at all.
     expect(screen.getByRole('banner')).toBeInTheDocument()
 
+    // Wait for the lazy chunk, or every assertion below would be checking the
+    // Suspense fallback instead of the page.
+    await waitForRoute()
+
+    // The page mounted rather than tripping the per-route error boundary.
+    // Without this the boundary would swallow a page that throws and this
+    // test would go green on a broken app.
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+
     // The path resolved to a real page rather than falling through to 404.
     expect(screen.queryByText(NOT_FOUND_MARKER)).not.toBeInTheDocument()
 
     // Exactly one main landmark. A page nesting its own <main> inside the
-    // layout's is an accessibility violation, and `getAllByRole` here is what
-    // caught CopilotWorkspace doing precisely that.
-    await waitFor(() => expect(screen.getAllByRole('main')).toHaveLength(1))
+    // layout's is an accessibility violation, and this is what caught
+    // CopilotWorkspace doing precisely that.
+    const [main, ...extra] = screen.getAllByRole('main')
+    expect(extra).toHaveLength(0)
+
+    // The page rendered something of its own, not an empty shell.
+    expect(main).not.toBeEmptyDOMElement()
   })
 
   it('renders the 404 page for an unknown path', async () => {
