@@ -281,7 +281,8 @@ export default function CopilotWorkspace() {
       </aside>
 
       {/* ============ CENTER PANEL ============ */}
-      <main className="space-y-4 xl:col-span-6">
+      {/* <section>, not <main>: AppLayout already owns the page's main landmark. */}
+      <section className="space-y-4 xl:col-span-6">
         {/* Input / upload bar */}
         <Card>
           <CardHeader icon={Sparkles} title="AI Medical Copilot" subtitle="Upload a prescription or enter details — the Copilot runs the full pipeline" />
@@ -385,7 +386,7 @@ export default function CopilotWorkspace() {
             analysis ? <CurrentAnalysis analysis={analysis} /> : <EmptyPanel text="Run the Copilot to see the current analysis." />
           )}
         </Card>
-      </main>
+      </section>
 
       {/* ============ RIGHT PANEL ============ */}
       <aside className="space-y-4 xl:col-span-3">

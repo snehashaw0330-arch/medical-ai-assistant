@@ -7,7 +7,7 @@ PY := ./venv/bin/python
 NPM := npm --prefix frontend
 
 .DEFAULT_GOAL := help
-.PHONY: help bench bench-handwritten bench-printed test test-ocr test-agents test-clinical serve lint
+.PHONY: help bench bench-handwritten bench-printed test test-ocr test-agents test-clinical test-ui serve lint verify
 
 help:  ## Show this help
 	@grep -hE '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) \
@@ -45,6 +45,13 @@ test-clinical:  ## Pediatric safety chain (rules engine + risk grade, fast)
 
 test-agents:  ## Multi-agent layer tests
 	PYTHONPATH=. $(PY) backend/agents/tests/test_agents.py
+
+test-ui:  ## Frontend tests (Vitest + RTL) — route inventory & nav contract
+	$(NPM) run test
+
+# --- Gate --------------------------------------------------------------------
+# The single command every phase of the architecture overhaul must leave green.
+verify: lint test-ui test  ## Run every gate: frontend lint + frontend tests + backend tests
 
 # --- Running ----------------------------------------------------------------
 serve:  ## Start the backend on 127.0.0.1:8000

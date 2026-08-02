@@ -22,4 +22,15 @@ export default defineConfig({
       },
     },
   },
+  test: {
+    environment: 'jsdom',
+    // No injected globals: tests import describe/it/expect/vi explicitly, so
+    // ESLint's no-undef keeps working without a test-file override.
+    globals: false,
+    setupFiles: ['./src/test/setup.js'],
+    include: ['src/**/*.{test,spec}.{js,jsx}'],
+    // Pages pull in Tailwind-only stylesheets; parsing them buys nothing here.
+    css: false,
+    restoreMocks: true,
+  },
 })
