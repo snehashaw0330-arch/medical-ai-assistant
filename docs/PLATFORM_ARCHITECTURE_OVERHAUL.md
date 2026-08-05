@@ -336,11 +336,18 @@ pediatric baseline (risk `moderate` / 51.0, infant red flag).
 | 7a — dependency vulns | **done** | | npm audit 9 -> 2; the 2 assessed as unreachable |
 | 3c — governance shell | **not started** | | see note below |
 | 3d — Chat into Copilot, shared FileIntake | **not started** | | |
-| 5 — TanStack Query migration | **not started** | | the 202 `useState` calls are untouched |
+| 5 — TanStack Query migration | **5 of 27 pages** | `0d31210`…`0fbc5c5` | 187 tests; 10/10 caught; `useState` 202 → 193 |
 | 6 — backend consolidation | **not started** | | 16 duplicated engine blocks untouched |
 | 7 — coverage & hardening | **not started** | | incl. the parked npm audit bumps |
 
 All work is on the `architecture-overhaul` branch; `main` is untouched.
+
+**Note on 5.** Migrated so far: `AuditLogs`, `ModelRegistry`, `DatasetRegistry`,
+`PatientContext`, `DigitalTwin`. Two behaviours the migration introduced were carried for
+several commits with no working test — mutation invalidation and dependent queries — because
+of a defect in the test harness rather than in the pages. Both are now covered
+(`queryInvalidation.test.jsx`, `dependentQueries.test.jsx`) and 10 mutations across the two
+pages and the shared hook are caught. See the harness note below before writing more.
 
 **Note on 3c.** Phase 2 already collapsed the five governance pages into one collapsible
 sidebar group, which is most of what the tabbed shell was for. What remains is shared chrome
@@ -349,12 +356,9 @@ urgent, and it should use the same `tabGroup` mechanism 3b introduced rather tha
 shell.
 
 Each phase is mutation-tested, not just run: the suite is re-verified by deliberately
-breaking things and confirming it fails. **34 mutations introduced across five phases, 34
-caught** — three of them only after a gap in the tests was found and closed.
-
-Each phase is mutation-tested, not just run: the suite is re-verified by deliberately
-breaking things and confirming it fails. Two gaps were found and closed this way rather
-than by inspection.
+breaking things and confirming it fails. **44 mutations introduced across six phases, 44
+caught** — four of them only after a gap in the tests was found and closed. Every gap below
+was found by breaking code, none by reading it.
 
 * **Phase 1 hid page crashes.** The new per-route error boundary swallowed a throwing page,
   so the route tests went green on a broken app. Fixed by asserting no boundary is showing
@@ -378,6 +382,28 @@ instead, so all 23 domain modules run their real code and no import path can byp
 
 Reverting the `findRoute` specificity fix breaks 60 of the 150 tests, which is the intended
 level of coverage for the piece of behaviour that was previously order-dependent.
+
+* **The client mock was one mock wearing five hats.** `buildClientMock` built every verb as
+  `vi.fn(respond)` from a single shared `respond`, and `vi.fn` hands back a function that is
+  already a mock rather than wrapping it — so `API`, `API.get`, `API.post`, `API.put`,
+  `API.patch` and `API.delete` were the *same object*, with one implementation and one call
+  log. Installing a POST behaviour rewrote what GET returned, and
+  `expect(API.post).toHaveBeenCalledWith(...)` was satisfied by any GET. This, not
+  `restoreMocks`, is why the first mutation-invalidation test passed with invalidation
+  deleted from both the hook and the page. Each verb now gets its own mock, and
+  `apiMockContract.test.js` tests the harness itself.
+* **The recorded cause of that failure was wrong for four commits.** `restoreMocks: true`
+  was blamed for discarding mock implementations between tests. Measured on Vitest 4.1.10 it
+  does the opposite: `vi.spyOn` spies are restored, `vi.fn` implementations are **kept**, and
+  only call history is cleared. The practical rule is unchanged — install behaviour in
+  `beforeEach` — but for the opposite reason: an implementation one test installs leaks into
+  every later test in the file. Both facts are now asserted, not narrated.
+* **Phase 5's two behaviours had no working test.** With the harness fixed, mutation
+  invalidation and dependent queries were covered properly: 10 mutations across
+  `useApiMutation`, `PatientContext`, `DigitalTwin`, `ModelRegistry` and `DatasetRegistry`,
+  all caught. One survived the first pass — deleting `setSelectedId('')` after a delete —
+  because no test had ever *explicitly chosen* the patient it then deleted; a seventh test
+  now covers that, and it fails without the reset.
 
 ## 4. Risks
 

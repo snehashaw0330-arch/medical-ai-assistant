@@ -56,40 +56,75 @@ const ENVELOPE = () => ({
 export const LIST_SHAPE = () => Object.assign([], ENVELOPE())
 
 /**
- * IMPORTANT: `restoreMocks: true` (vite.config.js) resets every mock's
- * implementation after each test. An implementation installed once inside a
- * `vi.mock` factory therefore only survives the FIRST test in the file; every
- * later test silently gets the default envelope back. That failure is invisible
- * — assertions keep passing while measuring nothing — and it is what made an
- * invalidation test go green with invalidation deleted from the codebase.
+ * IMPORTANT — how mock state actually behaves here, measured on Vitest 4.1.10
+ * with `restoreMocks: true` (vite.config.js) and the `vi.clearAllMocks()` in
+ * `test/setup.js`:
  *
- * So: install per-test behaviour in `beforeEach`, never in the factory.
- * `routeGet` exists to make that easy.
+ * | thing                    | between tests                        |
+ * |--------------------------|--------------------------------------|
+ * | `vi.spyOn` spy           | restored — reinstall inside each test |
+ * | `vi.fn` implementation   | **kept** — it leaks forward          |
+ * | call history             | cleared                              |
+ *
+ * `restoreMocks` restores spies, not plain mocks, so the danger is the
+ * opposite of a reset: an implementation installed anywhere — a `vi.mock`
+ * factory, or one test's `mockRejectedValue` — is still in force for every
+ * later test in the file. One test's error case then silently becomes the next
+ * test's baseline, and assertions keep passing while measuring the wrong thing.
+ *
+ * So: install per-test behaviour in `beforeEach`, never in the factory, so
+ * every test starts from a known implementation rather than inheriting one.
+ * `routeGet` and `routePost` exist to make that easy. `apiMockContract.test.js`
+ * pins this behaviour, so a Vitest upgrade that changes it fails there loudly
+ * instead of quietly greening a page test.
  */
-/**
- * Install a URL-routing GET implementation. Call inside `beforeEach`.
- * `routes` maps a URL substring to a responder returning the response body.
- */
-export function routeGet(API, routes, fallback = LIST_SHAPE) {
-  API.get.mockImplementation(async (url, config) => {
+function route(verb, routes, fallback) {
+  verb.mockImplementation(async (url, ...rest) => {
     for (const [fragment, respond] of Object.entries(routes)) {
-      if (url.includes(fragment)) return { data: respond(url, config) }
+      if (url.includes(fragment)) return { data: respond(url, ...rest) }
     }
     return { data: fallback() }
   })
 }
 
-/** Drop-in replacement for the `shared/api/client` module. */
+/**
+ * Install a URL-routing GET implementation. Call inside `beforeEach`.
+ * `routes` maps a URL substring to a responder returning the response body,
+ * called as `(url, config)`.
+ */
+export function routeGet(API, routes, fallback = LIST_SHAPE) {
+  route(API.get, routes, fallback)
+}
+
+/**
+ * The same for writes — the responder is called as `(url, payload, config)`,
+ * so a fake server can mutate its state and let the next GET observe it.
+ */
+export function routePost(API, routes, fallback = LIST_SHAPE) {
+  route(API.post, routes, fallback)
+}
+
+/**
+ * Drop-in replacement for the `shared/api/client` module.
+ *
+ * Each verb gets its **own** `vi.fn`, deliberately built from a factory rather
+ * than from one shared mock. `vi.fn(someOtherMock)` does not wrap a mock, it
+ * returns that same mock — so the obvious spelling, `get: vi.fn(respond)` for
+ * every verb, made `API`, `API.get` and `API.post` literally the same object.
+ * One implementation and one call log between them: installing a `post`
+ * behaviour silently replaced what `get` returned, and
+ * `expect(API.post).toHaveBeenCalled()` was satisfied by any GET.
+ */
 export function buildClientMock() {
-  const respond = vi.fn(async () => ({ data: LIST_SHAPE() }))
+  const respond = () => vi.fn(async () => ({ data: LIST_SHAPE() }))
 
   // axios instances are callable as well as having verb methods.
-  const API = Object.assign(vi.fn(respond), {
-    get: vi.fn(respond),
-    post: vi.fn(respond),
-    put: vi.fn(respond),
-    patch: vi.fn(respond),
-    delete: vi.fn(respond),
+  const API = Object.assign(respond(), {
+    get: respond(),
+    post: respond(),
+    put: respond(),
+    patch: respond(),
+    delete: respond(),
     // The `*Url` helpers read this to build absolute links.
     defaults: { baseURL: 'http://api.test' },
     interceptors: {
