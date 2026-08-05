@@ -336,14 +336,17 @@ pediatric baseline (risk `moderate` / 51.0, infant red flag).
 | 7a — dependency vulns | **done** | | npm audit 9 -> 2; the 2 assessed as unreachable |
 | 3c — governance shell | **not started** | | see note below |
 | 3d — Chat into Copilot, shared FileIntake | **not started** | | |
-| 5 — TanStack Query migration | **6 of 27 pages** | `0d31210`…`61065b9` | 191 tests; 14/14 caught; `useState` 202 → 189 |
+| 5 — TanStack Query migration | **8 of 27 pages** | `0d31210`…`e0044c1` | 197 tests; 22/22 caught; `useState` 202 → 182 |
 | 6 — backend consolidation | **not started** | | 16 duplicated engine blocks untouched |
 | 7 — coverage & hardening | **not started** | | incl. the parked npm audit bumps |
 
 All work is on the `architecture-overhaul` branch; `main` is untouched.
 
 **Note on 5.** Migrated so far: `AuditLogs`, `ModelRegistry`, `DatasetRegistry`,
-`PatientContext`, `DigitalTwin`, `PipelineViewer`. Two behaviours the migration introduced were carried for
+`PatientContext`, `DigitalTwin`, `PipelineViewer`, `AgentMonitor`, `DatasetEvaluation` —
+tranches 1 and 2 (read-only, then polling) complete. **No server polling is hand-rolled any
+more**: the four remaining `setInterval` calls in `features/` are UI animation timers (step
+cycling, a typewriter, an elapsed clock), which are not server state and stay as they are. Two behaviours the migration introduced were carried for
 several commits with no working test — mutation invalidation and dependent queries — because
 of a defect in the test harness rather than in the pages. Both are now covered
 (`queryInvalidation.test.jsx`, `dependentQueries.test.jsx`) and 10 mutations across the two
@@ -356,8 +359,8 @@ urgent, and it should use the same `tabGroup` mechanism 3b introduced rather tha
 shell.
 
 Each phase is mutation-tested, not just run: the suite is re-verified by deliberately
-breaking things and confirming it fails. **48 mutations introduced across six phases, 48
-caught** — four of them only after a gap in the tests was found and closed. Every gap below
+breaking things and confirming it fails. **56 mutations introduced across six phases, 56
+caught** — five of them only after a gap in the tests was found and closed. Every gap below
 was found by breaking code, none by reading it.
 
 * **Phase 1 hid page crashes.** The new per-route error boundary swallowed a throwing page,
@@ -398,6 +401,12 @@ level of coverage for the piece of behaviour that was previously order-dependent
   only call history is cleared. The practical rule is unchanged — install behaviour in
   `beforeEach` — but for the opposite reason: an implementation one test installs leaks into
   every later test in the file. Both facts are now asserted, not narrated.
+* **A polling page that never stops polling looks fine.** The migration's stop condition is
+  a `refetchInterval` returning `false` on a terminal status; get it wrong and the page
+  requests every 1.2s forever while the run card sits there saying "Completed". The tests
+  therefore assert the *stop*: after a terminal status the request count must not move
+  again. They run on real timers and take a few seconds, because fake timers stall RTL's
+  `waitFor` — it detects them through a `jest` global this project does not have.
 * **Phase 5's two behaviours had no working test.** With the harness fixed, mutation
   invalidation and dependent queries were covered properly: 10 mutations across
   `useApiMutation`, `PatientContext`, `DigitalTwin`, `ModelRegistry` and `DatasetRegistry`,

@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import {
   Workflow,
@@ -34,9 +35,17 @@ import {
   getAgentHealth,
   getAgentRuns,
 } from '@/lib/api'
-import { errorMessage, titleCase, confidenceColor, formatDate } from '@/lib/utils'
+import { useApiQuery } from '@/shared/hooks/useApiQuery'
+import { useApiMutation } from '@/shared/hooks/useApiMutation'
+import { qk } from '@/shared/hooks/queryKeys'
+import { titleCase, confidenceColor, formatDate } from '@/lib/utils'
 
 const HEALTH_POLL_MS = 30_000
+const RUN_POLL_MS = 1_200
+
+// A run stops polling here and nowhere else.
+const TERMINAL = new Set(['completed', 'failed'])
+const isTerminal = (status) => TERMINAL.has(status)
 
 // Agent status → visual treatment.
 const STATUS = {
@@ -158,80 +167,81 @@ function HealthTile({ health }) {
 const RUN_ROW_TONE = { pending: 'neutral', running: 'primary', completed: 'success', failed: 'danger' }
 
 export default function AgentMonitor() {
-  const [registry, setRegistry] = useState(null)
-  const [health, setHealth] = useState(null)
-  const [recentRuns, setRecentRuns] = useState([])
+  // Only the form and which run is on screen are state now. The run itself,
+  // the agent health and the recent-run list are queries that poll themselves.
   const [symptoms, setSymptoms] = useState([])
   const [medicines, setMedicines] = useState([])
   const [text, setText] = useState('')
   const [file, setFile] = useState(null)
   const [preview, setPreview] = useState(null)
-  const [run, setRun] = useState(null)
-  const [running, setRunning] = useState(false)
-  const pollRef = useRef(null)
-  const healthPollRef = useRef(null)
+  const [runId, setRunId] = useState('')
   const fileRef = useRef(null)
 
-  const refreshRuns = () => getAgentRuns(10).then(setRecentRuns).catch(() => {})
-  const refreshHealth = (force = false) => getAgentHealth(force).then(setHealth).catch(() => {})
+  const { data: registry } = useApiQuery({
+    queryKey: qk.agents.registry(),
+    queryFn: getAgentRegistry,
+    errorText: 'Could not load the agent registry',
+  })
 
-  useEffect(() => {
-    getAgentRegistry().then(setRegistry).catch(() => {})
-    refreshHealth()
-    refreshRuns()
-    healthPollRef.current = setInterval(refreshHealth, HEALTH_POLL_MS)
-    return () => {
-      clearInterval(pollRef.current)
-      clearInterval(healthPollRef.current)
-    }
-  }, [])
+  const { data: health } = useApiQuery({
+    queryKey: qk.agents.health(),
+    queryFn: () => getAgentHealth(false),
+    refetchInterval: HEALTH_POLL_MS,
+    errorText: 'Could not probe agent health',
+  })
 
-  const poll = (runId) => {
-    clearInterval(pollRef.current)
-    pollRef.current = setInterval(async () => {
-      try {
-        const state = await getAgentRun(runId)
-        setRun(state)
-        if (state.status === 'completed' || state.status === 'failed') {
-          clearInterval(pollRef.current)
-          setRunning(false)
-          refreshRuns()
-          refreshHealth()
-        }
-      } catch {
-        clearInterval(pollRef.current)
-        setRunning(false)
-      }
-    }, 1200)
-  }
+  // The header button means "re-probe now", not "refetch": `force` makes the
+  // backend actually contact each agent instead of returning its cached
+  // snapshot, so this cannot be `refetch()` — that would re-run the polling
+  // query function, force and all missing. Writing through `fetchQuery` on the
+  // same key keeps one cache entry for both.
+  const queryClient = useQueryClient()
+  const forceProbe = () =>
+    queryClient.fetchQuery({
+      queryKey: qk.agents.health(),
+      queryFn: () => getAgentHealth(true),
+      staleTime: 0,
+    })
 
-  // Load a past run from the Agent Status Dashboard's recent-runs list.
-  const loadRun = async (runId) => {
-    clearInterval(pollRef.current)
-    setRunning(false)
-    try {
-      setRun(await getAgentRun(runId))
-    } catch (err) {
-      toast.error(errorMessage(err, 'Could not load that run'))
-    }
-  }
+  const { data: run } = useApiQuery({
+    queryKey: qk.agents.run(runId),
+    queryFn: () => getAgentRun(runId),
+    enabled: Boolean(runId),
+    // The old interval polled every 1.2s and cleared itself on a terminal
+    // status. Returning `false` from here is the same stop condition, minus the
+    // two `clearInterval` calls that had to be remembered on every exit path
+    // — including component unmount, which is now the cache's problem.
+    refetchInterval: (query) => (isTerminal(query.state.data?.status) ? false : RUN_POLL_MS),
+    errorText: 'Could not load that run',
+  })
 
-  const launch = async () => {
+  const launch = useApiMutation({
+    mutationFn: () => startAgentRun({ file, symptoms, medicines, text }),
+    errorText: 'Could not start the pipeline',
+    onSuccess: ({ run_id }) => setRunId(run_id),
+  })
+
+  // In flight from the moment the launch request leaves until the run reports
+  // a terminal status — derived, so there is no `running` flag to leave stuck
+  // on when a request fails.
+  const running = launch.isPending || (Boolean(runId) && !isTerminal(run?.status))
+
+  const { data: recentRuns = [] } = useApiQuery({
+    queryKey: qk.agents.runs(10),
+    queryFn: () => getAgentRuns(10),
+    // While a run is live the list is stale the moment it renders; polling it
+    // replaces the explicit refresh the old poller fired on completion.
+    refetchInterval: running ? RUN_POLL_MS : false,
+    errorText: 'Could not load recent runs',
+  })
+
+  const startRun = () => {
     if (!file && symptoms.length === 0 && medicines.length === 0 && !text.trim()) {
       toast.error('Provide a prescription image, symptoms, or medicines.')
       return
     }
-    setRunning(true)
-    setRun(null)
-    try {
-      const { run_id } = await startAgentRun({ file, symptoms, medicines, text })
-      const first = await getAgentRun(run_id)
-      setRun(first)
-      poll(run_id)
-    } catch (err) {
-      toast.error(errorMessage(err, 'Could not start the pipeline'))
-      setRunning(false)
-    }
+    setRunId('')
+    launch.mutate()
   }
 
   const pickFile = (f) => {
@@ -319,7 +329,7 @@ export default function AgentMonitor() {
               </div>
             </div>
 
-            <Button className="mt-4 w-full" onClick={launch} loading={running} disabled={running}>
+            <Button className="mt-4 w-full" onClick={startRun} loading={running} disabled={running}>
               <Play size={16} /> Run Multi-Agent Pipeline
             </Button>
           </Card>
@@ -364,7 +374,7 @@ export default function AgentMonitor() {
               subtitle={health ? `${health.healthy_agents}/${health.total_agents} agents healthy` : 'Probing agents…'}
               action={
                 <button
-                  onClick={() => refreshHealth(true)}
+                  onClick={forceProbe}
                   aria-label="Refresh agent health"
                   title="Refresh agent health"
                   className="grid h-8 w-8 place-items-center rounded-lg text-muted transition-colors hover:bg-surface-2 hover:text-foreground"
@@ -396,7 +406,7 @@ export default function AgentMonitor() {
                   {recentRuns.map((r) => (
                     <button
                       key={r.run_id}
-                      onClick={() => loadRun(r.run_id)}
+                      onClick={() => setRunId(r.run_id)}
                       className="flex w-full items-center gap-2 rounded-lg bg-surface-2 px-2.5 py-1.5 text-left text-xs transition-colors hover:bg-surface-2/70"
                     >
                       <Badge tone={RUN_ROW_TONE[r.status] || 'neutral'}>{titleCase(r.status)}</Badge>

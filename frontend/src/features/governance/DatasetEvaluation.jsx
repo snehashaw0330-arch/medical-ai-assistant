@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import {
   Database,
@@ -25,6 +26,9 @@ import {
   getDatasetEvaluationStatus,
   datasetReportUrl,
 } from '@/lib/api'
+import { useApiQuery } from '@/shared/hooks/useApiQuery'
+import { useApiMutation } from '@/shared/hooks/useApiMutation'
+import { qk } from '@/shared/hooks/queryKeys'
 import { errorMessage, titleCase, confidenceColor } from '@/lib/utils'
 
 const POLL_MS = 2000
@@ -96,52 +100,57 @@ function ResultRow({ r }) {
 
 // ---------- page ----------
 export default function DatasetEvaluation() {
-  const [info, setInfo] = useState(null)        // { image_count, dataset, exists }
-  const [job, setJob] = useState(null)          // latest status payload
-  const [running, setRunning] = useState(false)
-  const [error, setError] = useState(null)
+  const [jobId, setJobId] = useState('')
   const [filter, setFilter] = useState('all')   // all | failed
-  const pollRef = useRef(null)
 
   // Load dataset size on mount so the user sees what they're about to run.
+  const { data: info } = useApiQuery({
+    queryKey: qk.benchmarks.datasetInfo(),
+    queryFn: getDatasetInfo,
+    errorText: 'Could not read the dataset',
+  })
+
+  const {
+    data: job,
+    error: jobError,
+  } = useApiQuery({
+    queryKey: qk.benchmarks.job(jobId),
+    queryFn: () => getDatasetEvaluationStatus(jobId),
+    enabled: Boolean(jobId),
+    // Stops itself the moment the job leaves `running`, which is what the
+    // `clearInterval` on three separate exit paths used to be responsible for.
+    refetchInterval: (query) => (query.state.data?.status === 'running' ? POLL_MS : false),
+    errorText: 'Lost connection to the evaluation job.',
+  })
+
+  const queryClient = useQueryClient()
+  const start = useApiMutation({
+    mutationFn: startDatasetEvaluation,
+    errorText: 'Could not start the evaluation.',
+    onSuccess: (started) => {
+      // Seed the cache with the start response, exactly as the old code did
+      // with its `setJob(started)`. Without it there is a gap between the
+      // mutation settling and the first poll landing, during which the page
+      // has no job at all and the progress bar blinks out.
+      queryClient.setQueryData(qk.benchmarks.job(started.job_id), started)
+      setJobId(started.job_id)
+    },
+  })
+
+  const running = start.isPending || job?.status === 'running'
+
+  // The one thing a query cannot express: a toast fires on the *transition*
+  // into `completed`, not on the state itself.
+  const status = job?.status
   useEffect(() => {
-    getDatasetInfo().then(setInfo).catch(() => setInfo(null))
-    return () => clearInterval(pollRef.current)
-  }, [])
+    if (status === 'completed') toast.success('Evaluation complete')
+  }, [status])
 
-  const poll = (jobId) => {
-    clearInterval(pollRef.current)
-    pollRef.current = setInterval(async () => {
-      try {
-        const status = await getDatasetEvaluationStatus(jobId)
-        setJob(status)
-        if (status.status !== 'running') {
-          clearInterval(pollRef.current)
-          setRunning(false)
-          if (status.status === 'completed') toast.success('Evaluation complete')
-          if (status.status === 'failed') setError(status.error || 'Evaluation failed')
-        }
-      } catch (err) {
-        clearInterval(pollRef.current)
-        setRunning(false)
-        setError(errorMessage(err, 'Lost connection to the evaluation job.'))
-      }
-    }, POLL_MS)
-  }
-
-  const run = async () => {
-    setError(null)
-    setRunning(true)
-    setJob(null)
-    try {
-      const started = await startDatasetEvaluation()
-      setJob(started)
-      poll(started.job_id)
-    } catch (err) {
-      setRunning(false)
-      setError(errorMessage(err, 'Could not start the evaluation.'))
-    }
-  }
+  const error =
+    (job?.status === 'failed' && (job.error || 'Evaluation failed')) ||
+    (jobError && errorMessage(jobError, 'Lost connection to the evaluation job.')) ||
+    (start.error && errorMessage(start.error, 'Could not start the evaluation.')) ||
+    null
 
   const total = job?.total ?? info?.image_count ?? 0
   const done = (job?.processed ?? 0) + (job?.failed ?? 0)
@@ -161,7 +170,7 @@ export default function DatasetEvaluation() {
           title="Dataset Evaluation"
           subtitle="Batch-run the handwritten prescription dataset through the OCR pipeline"
           action={
-            <Button onClick={run} loading={running} disabled={running || !info?.image_count}>
+            <Button onClick={() => start.mutate()} loading={running} disabled={running || !info?.image_count}>
               {running ? <Loader2 size={16} className="animate-spin" /> : <Play size={16} />}
               {running ? 'Evaluating…' : 'Run Evaluation'}
             </Button>

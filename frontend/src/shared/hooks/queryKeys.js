@@ -40,9 +40,16 @@ export const qk = {
     twinList: () => ['patients', 'twins'],
     twin: (patientId) => ['patients', 'twin', patientId],
   },
+  benchmarks: {
+    all: ['benchmarks'],
+    datasetInfo: () => ['benchmarks', 'dataset-info'],
+    job: (jobId) => ['benchmarks', 'job', jobId],
+  },
   agents: {
     all: ['agents'],
     registry: () => ['agents', 'registry'],
+    health: () => ['agents', 'health'],
     runs: (limit) => ['agents', 'runs', limit],
+    run: (runId) => ['agents', 'run', runId],
   },
 }
