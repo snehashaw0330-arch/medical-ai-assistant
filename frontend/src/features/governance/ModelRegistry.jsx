@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import toast from 'react-hot-toast'
 import { Boxes, Plus, Cpu, CheckCircle2, X } from 'lucide-react'
 import Card, { CardHeader } from '@/ui/Card'
@@ -7,7 +7,10 @@ import Badge from '@/ui/Badge'
 import EmptyState from '@/ui/EmptyState'
 import { CardSkeleton } from '@/ui/Skeleton'
 import { getGovernanceModels, registerGovernanceModel } from '@/lib/api'
-import { errorMessage, formatDate } from '@/lib/utils'
+import { useApiQuery } from '@/shared/hooks/useApiQuery'
+import { useApiMutation } from '@/shared/hooks/useApiMutation'
+import { qk } from '@/shared/hooks/queryKeys'
+import { formatDate } from '@/lib/utils'
 
 const STATUS_TONE = {
   production: 'success', staging: 'primary', experimental: 'warning', deprecated: 'neutral',
@@ -18,22 +21,25 @@ const EMPTY = { name: '', version: '', accuracy: '', training_date: '', dataset:
 
 function RegisterForm({ onClose, onSaved }) {
   const [form, setForm] = useState(EMPTY)
-  const [saving, setSaving] = useState(false)
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }))
 
-  const submit = async () => {
+  const register = useApiMutation({
+    mutationFn: (payload) => registerGovernanceModel(payload),
+    successText: 'Model registered',
+    errorText: 'Could not register model',
+    // Prefix, not just the models list: the governance dashboard counts models
+    // too, and a write that only refreshed its own page left that stale.
+    invalidates: qk.governance.all,
+    onSuccess: onSaved,
+  })
+  const saving = register.isPending
+
+  const submit = () => {
     if (!form.name.trim() || !form.version.trim()) return toast.error('Name and version are required')
-    setSaving(true)
-    try {
-      await registerGovernanceModel({
-        ...form,
-        accuracy: form.accuracy === '' ? null : Number(form.accuracy),
-      })
-      toast.success('Model registered')
-      onSaved()
-    } catch (err) {
-      toast.error(errorMessage(err, 'Could not register model'))
-    } finally { setSaving(false) }
+    register.mutate({
+      ...form,
+      accuracy: form.accuracy === '' ? null : Number(form.accuracy),
+    })
   }
 
   return (
@@ -73,24 +79,13 @@ function Field({ label, children }) {
 }
 
 export default function ModelRegistry() {
-  const [models, setModels] = useState([])
-  const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
 
-  const load = async () => {
-    setLoading(true)
-    try { setModels(await getGovernanceModels()) }
-    catch (err) { toast.error(errorMessage(err, 'Could not load models')) }
-    finally { setLoading(false) }
-  }
-  useEffect(() => {
-    let alive = true
-    getGovernanceModels()
-      .then((d) => alive && setModels(d))
-      .catch((err) => toast.error(errorMessage(err, 'Could not load models')))
-      .finally(() => alive && setLoading(false))
-    return () => { alive = false }
-  }, [])
+  const { data: models = [], isPending: loading } = useApiQuery({
+    queryKey: qk.governance.models(),
+    queryFn: getGovernanceModels,
+    errorText: 'Could not load models',
+  })
 
   return (
     <div className="space-y-5">
@@ -128,7 +123,7 @@ export default function ModelRegistry() {
         </div>
       )}
 
-      {showForm && <RegisterForm onClose={() => setShowForm(false)} onSaved={() => { setShowForm(false); load() }} />}
+      {showForm && <RegisterForm onClose={() => setShowForm(false)} onSaved={() => setShowForm(false)} />}
     </div>
   )
 }

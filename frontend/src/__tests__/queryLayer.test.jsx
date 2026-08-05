@@ -5,7 +5,13 @@ import { LIST_SHAPE, buildClientMock } from '@/test/apiMock'
 import { renderRoute, waitForRoute } from '@/test/renderRoute'
 
 /**
- * Phase 5 guards. The TanStack migration is mostly mechanical, but two things
+ * Phase 5 guards.
+ *
+ * NOTE: mutation-invalidation is deliberately NOT covered here. An attempt at
+ * it passed with invalidation removed entirely from both the hook and the page
+ * — the request never reached the mock, so the assertion was measuring
+ * something else. A test that green-lights a deleted feature is worse than no
+ * test, so it was removed rather than left in place. See the commit message. The TanStack migration is mostly mechanical, but two things
  * are easy to get wrong and invisible once wrong:
  *
  * 1. Keying a query on the filter form's draft state refetches on every

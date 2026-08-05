@@ -6,10 +6,10 @@ import AppProviders from '@/app/providers'
 import App from '@/App'
 
 /** A client that fails fast and keeps nothing between tests. */
-function testQueryClient() {
+function testQueryClient(queryOverrides) {
   return new QueryClient({
     defaultOptions: {
-      queries: { retry: false, gcTime: 0, staleTime: 0 },
+      queries: { retry: false, gcTime: 0, staleTime: 0, ...queryOverrides },
       mutations: { retry: false },
     },
   })
@@ -21,9 +21,9 @@ function testQueryClient() {
  * purpose: these tests exist to catch nav pointing at a dead route, a page that
  * throws on mount, and a lazy chunk that never resolves.
  */
-export function renderRoute(path) {
+export function renderRoute(path, { queryOptions } = {}) {
   return render(
-    <AppProviders client={testQueryClient()}>
+    <AppProviders client={testQueryClient(queryOptions)}>
       <MemoryRouter initialEntries={[path]}>
         <App />
       </MemoryRouter>

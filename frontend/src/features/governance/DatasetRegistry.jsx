@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import toast from 'react-hot-toast'
 import { Layers, Plus, Database, CheckCircle2, X } from 'lucide-react'
 import Card, { CardHeader } from '@/ui/Card'
@@ -7,7 +7,10 @@ import Badge from '@/ui/Badge'
 import EmptyState from '@/ui/EmptyState'
 import { CardSkeleton } from '@/ui/Skeleton'
 import { getGovernanceDatasets, registerGovernanceDataset } from '@/lib/api'
-import { errorMessage, formatDate } from '@/lib/utils'
+import { useApiQuery } from '@/shared/hooks/useApiQuery'
+import { useApiMutation } from '@/shared/hooks/useApiMutation'
+import { qk } from '@/shared/hooks/queryKeys'
+import { formatDate } from '@/lib/utils'
 
 const EMPTY = { name: '', version: '', source: '', size: '', date_added: '', purpose: '' }
 const inputCls = 'h-10 w-full rounded-xl border border-border bg-background px-3 text-sm text-foreground outline-none focus:border-primary'
@@ -17,19 +20,20 @@ function Field({ label, children }) {
 
 function RegisterForm({ onClose, onSaved }) {
   const [form, setForm] = useState(EMPTY)
-  const [saving, setSaving] = useState(false)
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }))
 
-  const submit = async () => {
+  const register = useApiMutation({
+    mutationFn: (payload) => registerGovernanceDataset(payload),
+    successText: 'Dataset registered',
+    errorText: 'Could not register dataset',
+    invalidates: qk.governance.all,
+    onSuccess: onSaved,
+  })
+  const saving = register.isPending
+
+  const submit = () => {
     if (!form.name.trim() || !form.version.trim()) return toast.error('Name and version are required')
-    setSaving(true)
-    try {
-      await registerGovernanceDataset(form)
-      toast.success('Dataset registered')
-      onSaved()
-    } catch (err) {
-      toast.error(errorMessage(err, 'Could not register dataset'))
-    } finally { setSaving(false) }
+    register.mutate(form)
   }
 
   return (
@@ -59,24 +63,13 @@ function RegisterForm({ onClose, onSaved }) {
 }
 
 export default function DatasetRegistry() {
-  const [datasets, setDatasets] = useState([])
-  const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
 
-  const load = async () => {
-    setLoading(true)
-    try { setDatasets(await getGovernanceDatasets()) }
-    catch (err) { toast.error(errorMessage(err, 'Could not load datasets')) }
-    finally { setLoading(false) }
-  }
-  useEffect(() => {
-    let alive = true
-    getGovernanceDatasets()
-      .then((d) => alive && setDatasets(d))
-      .catch((err) => toast.error(errorMessage(err, 'Could not load datasets')))
-      .finally(() => alive && setLoading(false))
-    return () => { alive = false }
-  }, [])
+  const { data: datasets = [], isPending: loading } = useApiQuery({
+    queryKey: qk.governance.datasets(),
+    queryFn: getGovernanceDatasets,
+    errorText: 'Could not load datasets',
+  })
 
   return (
     <div className="space-y-5">
@@ -113,7 +106,7 @@ export default function DatasetRegistry() {
         </div>
       )}
 
-      {showForm && <RegisterForm onClose={() => setShowForm(false)} onSaved={() => { setShowForm(false); load() }} />}
+      {showForm && <RegisterForm onClose={() => setShowForm(false)} onSaved={() => setShowForm(false)} />}
     </div>
   )
 }
