@@ -1,6 +1,4 @@
-import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import toast from 'react-hot-toast'
 import {
   Layers, ChevronRight, CheckCircle2, AlertTriangle, MinusCircle, XCircle,
   Upload, ScanLine, Pill, Stethoscope, ShieldAlert, BookOpen, BrainCircuit,
@@ -11,7 +9,9 @@ import Badge from '@/ui/Badge'
 import EmptyState from '@/ui/EmptyState'
 import { CardSkeleton } from '@/ui/Skeleton'
 import { searchDecisions, getDecisionPipeline } from '@/lib/api'
-import { errorMessage, formatDate, confidenceColor } from '@/lib/utils'
+import { useApiQuery } from '@/shared/hooks/useApiQuery'
+import { qk } from '@/shared/hooks/queryKeys'
+import { formatDate, confidenceColor } from '@/lib/utils'
 
 const STEP_ICON = {
   upload: Upload, ocr: ScanLine, medicine_matching: Pill, disease_prediction: Stethoscope,
@@ -61,36 +61,32 @@ function StepCard({ step }) {
   )
 }
 
+const DECISION_PARAMS = { page_size: 50 }
+
 export default function PipelineViewer() {
+  // The URL is the selection. That is what the old code was reaching for when
+  // it wrote `?trace=` from inside its loader, except it also kept the same id
+  // in component state and had to keep the two agreeing.
   const [params, setParams] = useSearchParams()
   const traceParam = params.get('trace') || ''
-  const [decisions, setDecisions] = useState([])
-  const [traceId, setTraceId] = useState(traceParam)
-  const [pipeline, setPipeline] = useState(null)
-  const [loading, setLoading] = useState(false)
 
-  const load = async (id) => {
-    if (!id) return
-    setTraceId(id)
-    setParams({ trace: id }, { replace: true })
-    setLoading(true)
-    try {
-      setPipeline(await getDecisionPipeline(id))
-    } catch (err) {
-      toast.error(errorMessage(err, 'Could not load the pipeline'))
-    } finally { setLoading(false) }
-  }
+  const { data: page } = useApiQuery({
+    queryKey: qk.governance.decisions(DECISION_PARAMS),
+    queryFn: () => searchDecisions(DECISION_PARAMS),
+    errorText: 'Could not load decisions',
+  })
+  const decisions = page?.items || []
 
-  useEffect(() => {
-    searchDecisions({ page_size: 50 })
-      .then((page) => {
-        const items = page.items || []
-        setDecisions(items)
-        const initial = traceParam || (items[0] && items[0].trace_id)
-        if (initial) load(initial)
-      })
-      .catch((err) => toast.error(errorMessage(err, 'Could not load decisions')))
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  // Derived, not stored — the same rule the patients pages follow, and what
+  // replaces the auto-select that used to live inside the list's `.then()`.
+  const traceId = traceParam || decisions[0]?.trace_id || ''
+
+  const { data: pipeline, isFetching: loading } = useApiQuery({
+    queryKey: qk.governance.pipeline(traceId),
+    queryFn: () => getDecisionPipeline(traceId),
+    enabled: Boolean(traceId),
+    errorText: 'Could not load the pipeline',
+  })
 
   return (
     <div className="space-y-5">
@@ -101,7 +97,10 @@ export default function PipelineViewer() {
           </h1>
           <p className="text-sm text-muted">The end-to-end AI workflow for one decision — time, status, confidence & warnings per step.</p>
         </div>
-        <select value={traceId} onChange={(e) => load(e.target.value)} disabled={!decisions.length}
+        <select
+          value={traceId}
+          onChange={(e) => setParams({ trace: e.target.value }, { replace: true })}
+          disabled={!decisions.length}
           className="h-10 max-w-xs rounded-xl border border-border bg-background px-3 text-sm text-foreground outline-none focus:border-primary">
           {!decisions.length && <option>No decisions yet</option>}
           {decisions.map((d) => (

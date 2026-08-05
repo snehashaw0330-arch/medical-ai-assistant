@@ -30,9 +30,16 @@ const PATIENTS = [
   { patient_id: 'raj-mehta', patient_name: 'Raj Mehta', event_count: 2, report_count: 2 },
 ]
 
+const DECISIONS = [
+  { trace_id: 'trace-newest', patient_name: 'Asha Rao', top_disease: 'Anaemia', created_at: '2026-08-04T09:00:00Z' },
+  { trace_id: 'trace-older', patient_name: 'Raj Mehta', top_disease: 'Migraine', created_at: '2026-08-01T09:00:00Z' },
+]
+
 let contexts = []
+let decisions = []
 let detailGets = []
 let twinGets = []
+let pipelineGets = []
 
 /** The detail response for a patient-context id. */
 const contextOf = (id) => {
@@ -57,8 +64,10 @@ const contextOf = (id) => {
 
 beforeEach(() => {
   contexts = [...PATIENTS]
+  decisions = [...DECISIONS]
   detailGets = []
   twinGets = []
+  pipelineGets = []
 
   // Order matters: the list URLs are prefixes of the detail URLs, so they have
   // to be matched first.
@@ -75,6 +84,14 @@ beforeEach(() => {
       twinGets.push(id)
       return { patient_id: id, report_count: 0, ai_summary: `Nothing recorded for ${id}` }
     },
+    // `/governance/decisions/<id>/pipeline` shares its prefix with the list
+    // endpoint, so the more specific one is matched by its suffix first.
+    '/pipeline': (url) => {
+      const id = decodeURIComponent(url.split('/decisions/')[1].replace('/pipeline', ''))
+      pipelineGets.push(id)
+      return { trace_id: id, status: 'success', total_time: 1.5, steps: [] }
+    },
+    '/governance/decisions': () => ({ items: [...decisions] }),
   })
 })
 
@@ -160,6 +177,49 @@ describe('patient context', () => {
     expect(await screen.findByText('Asha Rao')).toBeInTheDocument()
     expect(screen.queryByText(/Raj Mehta|unknown:/)).not.toBeInTheDocument()
     expect(detailGets).not.toContain('unknown:raj-mehta')
+  })
+})
+
+describe('pipeline viewer', () => {
+  it('shows the newest decision without being asked', async () => {
+    renderRoute('/governance/pipeline')
+    await waitForRoute()
+
+    expect(await screen.findByText('trace-newest')).toBeInTheDocument()
+    await waitFor(() => expect(pipelineGets).toEqual(['trace-newest']))
+  })
+
+  it('honours a ?trace= deep link instead of the first decision', async () => {
+    renderRoute('/governance/pipeline?trace=trace-older')
+    await waitForRoute()
+
+    expect(await screen.findByText('trace-older')).toBeInTheDocument()
+    expect(pipelineGets).toEqual(['trace-older'])
+  })
+
+  it('asks for no pipeline when there are no decisions', async () => {
+    decisions = []
+    renderRoute('/governance/pipeline')
+    await waitForRoute()
+
+    expect(await screen.findByText(/No decisions to visualise/i)).toBeInTheDocument()
+    expect(pipelineGets).toEqual([])
+  })
+
+  it('puts the chosen trace in the url, which is what drives the fetch', async () => {
+    const user = userEvent.setup()
+    renderRoute('/governance/pipeline')
+    await waitForRoute()
+    await screen.findByText('trace-newest')
+
+    const main = within(screen.getByRole('main'))
+    await user.selectOptions(main.getByRole('combobox'), 'trace-older')
+
+    // The select has no state of its own: it writes the URL and re-renders
+    // from it, so a wrong wiring here shows up as a stale dropdown.
+    expect(await screen.findByText('trace-older')).toBeInTheDocument()
+    await waitFor(() => expect(pipelineGets).toEqual(['trace-newest', 'trace-older']))
+    expect(main.getByRole('combobox')).toHaveValue('trace-older')
   })
 })
 
