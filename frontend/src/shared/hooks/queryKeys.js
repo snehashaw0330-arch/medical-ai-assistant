@@ -33,6 +33,13 @@ export const qk = {
     all: ['reports'],
     stats: () => ['reports', 'stats'],
   },
+  patients: {
+    all: ['patients'],
+    contexts: () => ['patients', 'contexts'],
+    context: (patientId) => ['patients', 'context', patientId],
+    twinList: () => ['patients', 'twins'],
+    twin: (patientId) => ['patients', 'twin', patientId],
+  },
   agents: {
     all: ['agents'],
     registry: () => ['agents', 'registry'],

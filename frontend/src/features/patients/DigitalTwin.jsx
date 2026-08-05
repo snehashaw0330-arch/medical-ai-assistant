@@ -1,5 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
-import toast from 'react-hot-toast'
+import { useMemo, useState } from 'react'
 import {
   ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
 } from 'recharts'
@@ -16,7 +15,10 @@ import { CardSkeleton } from '@/ui/Skeleton'
 import {
   getDigitalTwinPatients, getDigitalTwin, recalculateDigitalTwin,
 } from '@/lib/api'
-import { errorMessage, titleCase, formatDate, confidenceColor } from '@/lib/utils'
+import { useApiQuery } from '@/shared/hooks/useApiQuery'
+import { useApiMutation } from '@/shared/hooks/useApiMutation'
+import { qk } from '@/shared/hooks/queryKeys'
+import { titleCase, formatDate, confidenceColor } from '@/lib/utils'
 
 const DIR = {
   improving: { tone: 'success', color: 'var(--success)', icon: TrendingUp, label: 'Improving' },
@@ -135,46 +137,35 @@ function FactorBar({ label, value }) {
 }
 
 export default function DigitalTwin() {
-  const [patients, setPatients] = useState([])
-  const [patientId, setPatientId] = useState('')
-  const [twin, setTwin] = useState(null)
-  const [loading, setLoading] = useState(false)
-  const [recalculating, setRecalculating] = useState(false)
+  // Selection is the only state; the list and the twin are dependent queries.
+  const [selectedId, setSelectedId] = useState('')
 
-  const load = async (id) => {
-    setPatientId(id)
-    setLoading(true)
-    try {
-      setTwin(await getDigitalTwin(id))
-    } catch (err) {
-      toast.error(errorMessage(err, 'Could not build the digital twin'))
-    } finally {
-      setLoading(false)
-    }
-  }
+  const { data: patients = [] } = useApiQuery({
+    queryKey: qk.patients.twinList(),
+    queryFn: getDigitalTwinPatients,
+    errorText: 'Could not load patients. Is the API running?',
+  })
 
-  useEffect(() => {
-    getDigitalTwinPatients()
-      .then((list) => {
-        setPatients(list)
-        if (list.length) load(list[0].patient_id)
-      })
-      .catch(() => toast.error('Could not load patients. Is the API running?'))
-  }, [])
+  // Derived rather than stored, so the selection survives the list reloading.
+  const patientId = selectedId || patients[0]?.patient_id || ''
 
-  const recalc = async () => {
-    if (!patientId) return
-    setRecalculating(true)
-    try {
-      await recalculateDigitalTwin(patientId)
-      await load(patientId)
-      toast.success('Digital twin recalculated')
-    } catch (err) {
-      toast.error(errorMessage(err, 'Recalculation failed'))
-    } finally {
-      setRecalculating(false)
-    }
-  }
+  const { data: twin, isFetching: loading } = useApiQuery({
+    queryKey: qk.patients.twin(patientId),
+    queryFn: () => getDigitalTwin(patientId),
+    enabled: Boolean(patientId),
+    errorText: 'Could not build the digital twin',
+  })
+
+  const recalculate = useApiMutation({
+    mutationFn: () => recalculateDigitalTwin(patientId),
+    successText: 'Digital twin recalculated',
+    errorText: 'Recalculation failed',
+    // Invalidating replaces the explicit `await load(patientId)` the old code
+    // needed to refresh itself after recalculating.
+    invalidates: qk.patients.all,
+  })
+  const recalculating = recalculate.isPending
+  const recalc = () => { if (patientId) recalculate.mutate() }
 
   const status = dir(twin?.health_status)
   const StatusIcon = status.icon
@@ -204,7 +195,7 @@ export default function DigitalTwin() {
         <div className="flex items-center gap-2">
           <select
             value={patientId}
-            onChange={(e) => load(e.target.value)}
+            onChange={(e) => setSelectedId(e.target.value)}
             disabled={loading || !patients.length}
             className="h-10 rounded-xl border border-border bg-background px-3 text-sm text-foreground outline-none focus:border-primary"
           >

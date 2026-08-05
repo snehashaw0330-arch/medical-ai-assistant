@@ -1,5 +1,4 @@
-import { useEffect, useState } from 'react'
-import toast from 'react-hot-toast'
+import { useState } from 'react'
 import {
   Brain, MessageSquareText, ScanLine, Pill, Stethoscope, ClipboardList,
   Sparkles, Trash2, User, ShieldAlert,
@@ -10,7 +9,10 @@ import Badge from '@/ui/Badge'
 import EmptyState from '@/ui/EmptyState'
 import { CardSkeleton } from '@/ui/Skeleton'
 import { listPatientContexts, getPatientContext, deletePatientContext } from '@/lib/api'
-import { cn, errorMessage, formatDate } from '@/lib/utils'
+import { useApiQuery } from '@/shared/hooks/useApiQuery'
+import { useApiMutation } from '@/shared/hooks/useApiMutation'
+import { qk } from '@/shared/hooks/queryKeys'
+import { cn, formatDate } from '@/lib/utils'
 
 // Dotted vertical timeline, matching the pattern used on the Digital Twin page.
 function EventTimeline({ events, dotColor = 'var(--primary)', emptyText = 'Nothing on record yet.' }) {
@@ -64,58 +66,44 @@ function ConversationThread({ messages }) {
 }
 
 export default function PatientContext() {
-  const [patients, setPatients] = useState([])
-  const [patientId, setPatientId] = useState('')
-  const [detail, setDetail] = useState(null)
-  const [loading, setLoading] = useState(false)
-  const [deleting, setDeleting] = useState(false)
+  // Only the selection is state. The list and the selected patient's detail are
+  // two dependent queries, which removes the imperative auto-select-the-first
+  // dance the old code did inside a .then().
+  const [selectedId, setSelectedId] = useState('')
 
-  const load = async (id) => {
-    if (!id) return
-    setPatientId(id)
-    setLoading(true)
-    try {
-      setDetail(await getPatientContext(id))
-    } catch (err) {
-      toast.error(errorMessage(err, 'Could not load patient context'))
-    } finally {
-      setLoading(false)
-    }
-  }
+  const { data: listData } = useApiQuery({
+    queryKey: qk.patients.contexts(),
+    queryFn: listPatientContexts,
+    errorText: 'Could not load patient contexts. Is the API running?',
+  })
+  const patients = listData?.items || []
 
-  const loadPatients = () => {
-    listPatientContexts()
-      .then((res) => {
-        const items = res.items || []
-        setPatients(items)
-        if (items.length) load(items[0].patient_id)
-        else setDetail(null)
-      })
-      .catch(() => toast.error('Could not load patient contexts. Is the API running?'))
-  }
+  // Fall back to the first patient rather than storing that choice, so the
+  // selection stays correct when the list reloads after a delete.
+  const patientId = selectedId || patients[0]?.patient_id || ''
 
-  useEffect(() => {
-    loadPatients()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  const { data: detail, isFetching: loading } = useApiQuery({
+    queryKey: qk.patients.context(patientId),
+    queryFn: () => getPatientContext(patientId),
+    enabled: Boolean(patientId),
+    errorText: 'Could not load patient context',
+  })
 
-  const handleDelete = async () => {
+  const remove = useApiMutation({
+    mutationFn: () => deletePatientContext(patientId),
+    successText: 'Patient context deleted',
+    errorText: 'Delete failed',
+    invalidates: qk.patients.all,
+    onSuccess: () => setSelectedId(''),
+  })
+  const deleting = remove.isPending
+
+  const handleDelete = () => {
     if (!patientId) return
     if (!window.confirm(`Forget everything remembered about "${detail?.profile?.patient_name}"? This cannot be undone.`)) {
       return
     }
-    setDeleting(true)
-    try {
-      await deletePatientContext(patientId)
-      toast.success('Patient context deleted')
-      setPatientId('')
-      setDetail(null)
-      loadPatients()
-    } catch (err) {
-      toast.error(errorMessage(err, 'Delete failed'))
-    } finally {
-      setDeleting(false)
-    }
+    remove.mutate()
   }
 
   const profile = detail?.profile
@@ -132,7 +120,7 @@ export default function PatientContext() {
         <div className="flex items-center gap-2">
           <select
             value={patientId}
-            onChange={(e) => load(e.target.value)}
+            onChange={(e) => setSelectedId(e.target.value)}
             disabled={loading || !patients.length}
             className="h-10 rounded-xl border border-border bg-background px-3 text-sm text-foreground outline-none focus:border-primary"
           >
