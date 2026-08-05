@@ -55,6 +55,30 @@ const ENVELOPE = () => ({
 
 export const LIST_SHAPE = () => Object.assign([], ENVELOPE())
 
+/**
+ * IMPORTANT: `restoreMocks: true` (vite.config.js) resets every mock's
+ * implementation after each test. An implementation installed once inside a
+ * `vi.mock` factory therefore only survives the FIRST test in the file; every
+ * later test silently gets the default envelope back. That failure is invisible
+ * — assertions keep passing while measuring nothing — and it is what made an
+ * invalidation test go green with invalidation deleted from the codebase.
+ *
+ * So: install per-test behaviour in `beforeEach`, never in the factory.
+ * `routeGet` exists to make that easy.
+ */
+/**
+ * Install a URL-routing GET implementation. Call inside `beforeEach`.
+ * `routes` maps a URL substring to a responder returning the response body.
+ */
+export function routeGet(API, routes, fallback = LIST_SHAPE) {
+  API.get.mockImplementation(async (url, config) => {
+    for (const [fragment, respond] of Object.entries(routes)) {
+      if (url.includes(fragment)) return { data: respond(url, config) }
+    }
+    return { data: fallback() }
+  })
+}
+
 /** Drop-in replacement for the `shared/api/client` module. */
 export function buildClientMock() {
   const respond = vi.fn(async () => ({ data: LIST_SHAPE() }))
