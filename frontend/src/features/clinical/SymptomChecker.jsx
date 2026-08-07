@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import toast from 'react-hot-toast'
 import {
   ActivitySquare,
@@ -28,7 +28,10 @@ import {
   analyzeSymptoms,
   getSymptomHistory,
 } from '@/lib/api'
-import { errorMessage, titleCase, formatDate } from '@/lib/utils'
+import { useApiQuery } from '@/shared/hooks/useApiQuery'
+import { useApiMutation } from '@/shared/hooks/useApiMutation'
+import { qk } from '@/shared/hooks/queryKeys'
+import { titleCase, formatDate } from '@/lib/utils'
 
 // Urgency grade → UI treatment (Requirement 5 & 10).
 const URGENCY = {
@@ -109,27 +112,39 @@ function ListCard({ icon: Icon, title, items, empty }) {
 }
 
 export default function SymptomChecker() {
-  const [catalog, setCatalog] = useState(null)
   const [selected, setSelected] = useState([])
   const [severity, setSeverity] = useState(5)
   const [duration, setDuration] = useState('')
-  const [result, setResult] = useState(null)
-  const [loading, setLoading] = useState(false)
-  const [history, setHistory] = useState([])
 
-  const refreshHistory = () => {
-    getSymptomHistory({ page: 1, page_size: 5 })
-      .then((d) => setHistory(d.items || []))
-      .catch(() => {}) // history is non-critical
-  }
+  const { data: catalog } = useApiQuery({
+    queryKey: qk.symptoms.catalog(),
+    queryFn: getSymptomCatalog,
+    errorText: 'Could not load the symptom catalog. Is the API running?',
+  })
 
-  // Load the categorized catalog + recent server-side history once.
-  useEffect(() => {
-    getSymptomCatalog()
-      .then(setCatalog)
-      .catch(() => toast.error('Could not load the symptom catalog. Is the API running?'))
-    refreshHistory()
-  }, [])
+  const { data: historyPage } = useApiQuery({
+    queryKey: qk.symptoms.history(),
+    queryFn: () => getSymptomHistory({ page: 1, page_size: 5 }),
+    toastErrors: false, // history is non-critical
+  })
+  const history = historyPage?.items ?? []
+
+  const check = useApiMutation({
+    mutationFn: () =>
+      analyzeSymptoms({
+        symptoms: selected,
+        severity,
+        duration: duration || null,
+        include_rag: true,
+        top_k: 5,
+        persist: true,
+      }),
+    errorText: 'Symptom analysis failed',
+    invalidates: qk.symptoms.history(),
+  })
+
+  const result = check.data ?? null
+  const loading = check.isPending
 
   const allSymptoms = useMemo(
     () => (catalog?.categories || []).flatMap((c) => c.symptoms),
@@ -140,35 +155,19 @@ export default function SymptomChecker() {
   const toggle = (s) =>
     setSelected((prev) => (prev.includes(s) ? prev.filter((x) => x !== s) : [...prev, s]))
 
-  const analyze = async () => {
+  const analyze = () => {
     if (selected.length === 0) {
       toast.error('Add at least one symptom')
       return
     }
-    setLoading(true)
-    try {
-      const data = await analyzeSymptoms({
-        symptoms: selected,
-        severity,
-        duration: duration || null,
-        include_rag: true,
-        top_k: 5,
-        persist: true,
-      })
-      setResult(data)
-      refreshHistory()
-    } catch (err) {
-      toast.error(errorMessage(err, 'Symptom analysis failed'))
-    } finally {
-      setLoading(false)
-    }
+    check.mutate()
   }
 
   const reset = () => {
     setSelected([])
     setSeverity(5)
     setDuration('')
-    setResult(null)
+    check.reset()
   }
 
   const conditions = result?.possible_conditions ?? []

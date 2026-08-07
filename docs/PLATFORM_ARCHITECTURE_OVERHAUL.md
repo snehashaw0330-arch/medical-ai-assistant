@@ -336,7 +336,7 @@ pediatric baseline (risk `moderate` / 51.0, infant red flag).
 | 7a — dependency vulns | **done** | | npm audit 9 -> 2; the 2 assessed as unreachable |
 | 3c — governance shell | **not started** | | see note below |
 | 3d — Chat into Copilot, shared FileIntake | **not started** | | |
-| 5 — TanStack Query migration | **17 of 27 pages** | `0d31210`…`93cab6d` | 231 tests; 53/55 caught; `useState` 202 → 149 |
+| 5 — TanStack Query migration | **19 of 27 pages** | `0d31210`…`0de616b` | 235 tests; 58/60 caught; `useState` 202 → 141 |
 | 6 — backend consolidation | **not started** | | 16 duplicated engine blocks untouched |
 | 7 — coverage & hardening | **not started** | | incl. the parked npm audit bumps |
 
@@ -348,9 +348,10 @@ All work is on the `architecture-overhaul` branch; `main` is untouched.
 `EvidenceExplorer`, `MedicalReports`, `PrescriptionHistory`, `ClinicalDecision`,
 `ClinicalReasoning` — tranches 1 and 2 (read-only, then polling) complete, the whole
 Knowledge group migrated, both intake list pages, and two of the five clinical pages.
-What remains: `SymptomChecker`, `TreatmentSimulator`, `AIGovernance`,
-`DocumentIntelligence`, `CopilotWorkspace`, `PrescriptionOCR` last — and `DiseasePrediction`,
-which is **held** pending the product decision at the end of §3a. `useApiQuery`/`useApiMutation` grew one
+`SymptomChecker` and `TreatmentSimulator` complete the clinical group apart from
+`DiseasePrediction`, which is **held** pending the product decision at the end of §3a.
+What remains: `AIGovernance`, `DocumentIntelligence`, `CopilotWorkspace`, and
+`PrescriptionOCR` last. `useApiQuery`/`useApiMutation` grew one
 option in the process: `toastErrors: false`, for pages that render the failure inline. It is
 opt-out, so the default stays "the toast cannot be forgotten". **No server polling is hand-rolled any
 more**: the four remaining `setInterval` calls in `features/` are UI animation timers (step
@@ -367,7 +368,7 @@ urgent, and it should use the same `tabGroup` mechanism 3b introduced rather tha
 shell.
 
 Each phase is mutation-tested, not just run: the suite is re-verified by deliberately
-breaking things and confirming it fails. **93 mutations introduced across six phases, 89
+breaking things and confirming it fails. **98 mutations introduced across six phases, 94
 caught, one a proven no-op and three redundant code** — ten of them only after a gap in the tests was found and closed. Every gap below
 was found by breaking code, none by reading it.
 
@@ -431,6 +432,11 @@ level of coverage for the piece of behaviour that was previously order-dependent
   gap, one a no-op, and two were redundant code — a reset the precedence rule already
   decided, and a `setTurns([])` that `setMode('query')` already covered. Both were deleted
   rather than pinned with a test that would have been asserting nothing.
+* **An incomplete fixture crashes the page instead of failing the assertion.** Three
+  fields the Treatment Simulator dereferences without a guard — `result.side_effects.length`,
+  `result.confidence.overall` — took the page to its error boundary, and the test reported
+  only "unable to find text". Worth knowing in both directions: it is how a fixture gets
+  corrected quickly, and it is a real robustness gap if the backend ever omits a field.
 * **Phase 5's two behaviours had no working test.** With the harness fixed, mutation
   invalidation and dependent queries were covered properly: 10 mutations across
   `useApiMutation`, `PatientContext`, `DigitalTwin`, `ModelRegistry` and `DatasetRegistry`,

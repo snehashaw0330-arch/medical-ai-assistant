@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import toast from 'react-hot-toast'
 import {
   FlaskConical,
@@ -25,7 +25,10 @@ import TagInput from '@/ui/TagInput'
 import EmptyState from '@/ui/EmptyState'
 import ConfidenceMeter from '@/ui/ConfidenceMeter'
 import { runSimulation, getSimulationHistory, getSimulationReport, getSymptoms } from '@/lib/api'
-import { errorMessage, titleCase, formatDate } from '@/lib/utils'
+import { useApiQuery } from '@/shared/hooks/useApiQuery'
+import { useApiMutation } from '@/shared/hooks/useApiMutation'
+import { qk } from '@/shared/hooks/queryKeys'
+import { titleCase, formatDate } from '@/lib/utils'
 
 const RISK_TONE = { critical: 'danger', high: 'danger', moderate: 'warning', low: 'success' }
 const RISK_COLOR = { critical: 'var(--danger)', high: 'var(--danger)', moderate: 'var(--warning)', low: 'var(--success)' }
@@ -233,23 +236,28 @@ export default function TreatmentSimulator() {
   const [patient, setPatient] = useState({ age: '', weight_kg: '', gender: '', pregnant: false, renal_disease: 'none', hepatic_disease: 'none' })
   const [allergies, setAllergies] = useState([])
   const [symptoms, setSymptoms] = useState([])
-  const [symptomOptions, setSymptomOptions] = useState([])
   const [scenarios, setScenarios] = useState([
     { name: nextScenarioName(), medicine_changes: [{ action: 'dosage_change', target: 'Paracetamol', name: '', dose: 650, unit: 'mg' }], patient_changes: {} },
   ])
   const [includeRag, setIncludeRag] = useState(false)
-  const [loading, setLoading] = useState(false)
-  const [report, setReport] = useState(null)
-  const [history, setHistory] = useState([])
   const resultRef = useRef(null)
 
-  const refreshHistory = () =>
-    getSimulationHistory({ page_size: 6 }).then((d) => setHistory(d.items || [])).catch(() => setHistory([]))
+  const scrollToResult = () =>
+    setTimeout(() => resultRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 60)
 
-  useEffect(() => {
-    getSymptoms().then(setSymptomOptions).catch(() => setSymptomOptions([]))
-    refreshHistory()
-  }, [])
+  // Same key as the two clinical report pages — one vocabulary, one fetch.
+  const { data: symptomOptions = [] } = useApiQuery({
+    queryKey: qk.clinical.symptomOptions(),
+    queryFn: getSymptoms,
+    toastErrors: false,
+  })
+
+  const { data: historyPage } = useApiQuery({
+    queryKey: qk.simulation.history(),
+    queryFn: () => getSimulationHistory({ page_size: 6 }),
+    toastErrors: false,
+  })
+  const history = historyPage?.items ?? []
 
   const baselineNames = baselineMeds.map((m) => m.name).filter(Boolean)
 
@@ -301,35 +309,32 @@ export default function TreatmentSimulator() {
     return Object.keys(out).length ? out : null
   }
 
-  const run = async () => {
+  const simulate = useApiMutation({
+    mutationFn: () => runSimulation(buildPayload()),
+    errorText: 'Simulation failed. Is the backend running?',
+    invalidates: qk.simulation.history(),
+    onSuccess: scrollToResult,
+  })
+
+  const open = useApiMutation({
+    mutationFn: (id) => getSimulationReport(id),
+    errorText: 'Could not load that simulation.',
+    onSuccess: () => { simulate.reset(); scrollToResult() },
+  })
+
+  // Newest action wins; see the note on the clinical report pages.
+  const report = simulate.data ?? open.data ?? null
+  const loading = simulate.isPending || open.isPending
+
+  const run = () => {
     if (!baselineNames.length && !symptoms.length) {
       toast.error('Add at least one baseline medicine or a symptom.')
       return
     }
-    setLoading(true)
-    try {
-      const data = await runSimulation(buildPayload())
-      setReport(data)
-      refreshHistory()
-      setTimeout(() => resultRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 60)
-    } catch (err) {
-      toast.error(errorMessage(err, 'Simulation failed. Is the backend running?'))
-    } finally {
-      setLoading(false)
-    }
+    simulate.mutate()
   }
 
-  const openHistory = async (id) => {
-    setLoading(true)
-    try {
-      setReport(await getSimulationReport(id))
-      setTimeout(() => resultRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 60)
-    } catch (err) {
-      toast.error(errorMessage(err, 'Could not load that simulation.'))
-    } finally {
-      setLoading(false)
-    }
-  }
+  const openHistory = (id) => open.mutate(id)
 
   const allResults = report ? [report.baseline, ...report.results] : []
   const recommendedId = report?.recommended_scenario_id
@@ -403,7 +408,7 @@ export default function TreatmentSimulator() {
 
           <div className="mt-3 flex gap-2">
             <Button className="flex-1" onClick={run} loading={loading}><Sparkles size={16} /> Run Simulation</Button>
-            <Button variant="secondary" onClick={() => setReport(null)} aria-label="Clear result"><RotateCcw size={16} /></Button>
+            <Button variant="secondary" onClick={() => { simulate.reset(); open.reset() }} aria-label="Clear result"><RotateCcw size={16} /></Button>
           </div>
 
           {history.length > 0 && (

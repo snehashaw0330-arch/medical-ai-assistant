@@ -64,6 +64,15 @@ export const qk = {
     ragStatus: () => ['knowledge', 'rag-status'],
     answer: (question) => ['knowledge', 'answer', question],
   },
+  symptoms: {
+    all: ['symptoms'],
+    catalog: () => ['symptoms', 'catalog'],
+    history: () => ['symptoms', 'history'],
+  },
+  simulation: {
+    all: ['simulation'],
+    history: () => ['simulation', 'history'],
+  },
   evidence: {
     all: ['evidence'],
     verifications: () => ['evidence', 'verifications'],
