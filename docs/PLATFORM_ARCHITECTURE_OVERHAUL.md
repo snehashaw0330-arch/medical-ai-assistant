@@ -336,7 +336,7 @@ pediatric baseline (risk `moderate` / 51.0, infant red flag).
 | 7a — dependency vulns | **done** | | npm audit 9 -> 2; the 2 assessed as unreachable |
 | 3c — governance shell | **not started** | | see note below |
 | 3d — Chat into Copilot, shared FileIntake | **not started** | | |
-| 5 — TanStack Query migration | **15 of 27 pages** | `0d31210`…`c599bbd` | 224 tests; 46/47 caught; `useState` 202 → 158 |
+| 5 — TanStack Query migration | **17 of 27 pages** | `0d31210`…`93cab6d` | 231 tests; 53/55 caught; `useState` 202 → 149 |
 | 6 — backend consolidation | **not started** | | 16 duplicated engine blocks untouched |
 | 7 — coverage & hardening | **not started** | | incl. the parked npm audit bumps |
 
@@ -345,10 +345,12 @@ All work is on the `architecture-overhaul` branch; `main` is untouched.
 **Note on 5.** Migrated so far: `AuditLogs`, `ModelRegistry`, `DatasetRegistry`,
 `PatientContext`, `DigitalTwin`, `PipelineViewer`, `AgentMonitor`, `DatasetEvaluation`,
 `MedicineSearch`, `MedicineRecommendations`, `KnowledgeBase`, `EvidenceVerification`,
-`EvidenceExplorer`, `MedicalReports`, `PrescriptionHistory` — tranches 1 and 2 (read-only,
-then polling) complete, the whole Knowledge group migrated, and both intake list pages.
-What remains: the five clinical form pages, `AIGovernance`, `DocumentIntelligence`,
-`CopilotWorkspace`, and `PrescriptionOCR` last. `useApiQuery`/`useApiMutation` grew one
+`EvidenceExplorer`, `MedicalReports`, `PrescriptionHistory`, `ClinicalDecision`,
+`ClinicalReasoning` — tranches 1 and 2 (read-only, then polling) complete, the whole
+Knowledge group migrated, both intake list pages, and two of the five clinical pages.
+What remains: `SymptomChecker`, `TreatmentSimulator`, `AIGovernance`,
+`DocumentIntelligence`, `CopilotWorkspace`, `PrescriptionOCR` last — and `DiseasePrediction`,
+which is **held** pending the product decision at the end of §3a. `useApiQuery`/`useApiMutation` grew one
 option in the process: `toastErrors: false`, for pages that render the failure inline. It is
 opt-out, so the default stays "the toast cannot be forgotten". **No server polling is hand-rolled any
 more**: the four remaining `setInterval` calls in `features/` are UI animation timers (step
@@ -365,8 +367,8 @@ urgent, and it should use the same `tabGroup` mechanism 3b introduced rather tha
 shell.
 
 Each phase is mutation-tested, not just run: the suite is re-verified by deliberately
-breaking things and confirming it fails. **85 mutations introduced across six phases, 82
-caught, one a proven no-op and two redundant code** — nine of them only after a gap in the tests was found and closed. Every gap below
+breaking things and confirming it fails. **93 mutations introduced across six phases, 89
+caught, one a proven no-op and three redundant code** — ten of them only after a gap in the tests was found and closed. Every gap below
 was found by breaking code, none by reading it.
 
 * **Phase 1 hid page crashes.** The new per-route error boundary swallowed a throwing page,

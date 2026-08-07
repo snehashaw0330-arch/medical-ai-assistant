@@ -30,6 +30,15 @@ export const qk = {
   clinical: {
     all: ['clinical'],
     stats: () => ['clinical', 'stats'],
+    history: () => ['clinical', 'history'],
+    // The symptom vocabulary behind the autocomplete on three pages. One key,
+    // so the second and third page to mount serve it from cache.
+    symptomOptions: () => ['clinical', 'symptom-options'],
+  },
+  reasoning: {
+    all: ['reasoning'],
+    history: () => ['reasoning', 'history'],
+    pipeline: () => ['reasoning', 'pipeline'],
   },
   reports: {
     all: ['reports'],

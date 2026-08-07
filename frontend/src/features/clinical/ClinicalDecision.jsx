@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import toast from 'react-hot-toast'
 import {
   BrainCircuit,
@@ -21,7 +21,10 @@ import {
   getClinicalHistory,
   getClinicalReport,
 } from '@/lib/api'
-import { errorMessage, titleCase, formatDate } from '@/lib/utils'
+import { useApiQuery } from '@/shared/hooks/useApiQuery'
+import { useApiMutation } from '@/shared/hooks/useApiMutation'
+import { qk } from '@/shared/hooks/queryKeys'
+import { titleCase, formatDate } from '@/lib/utils'
 
 // Risk level → badge tone (mirrors ui/ClinicalReport + backend RiskLevel).
 const RISK_TONE = { critical: 'danger', high: 'danger', moderate: 'warning', low: 'primary' }
@@ -60,38 +63,32 @@ function HistoryRow({ item, onOpen }) {
 export default function ClinicalDecision() {
   const [medicines, setMedicines] = useState([])
   const [symptoms, setSymptoms] = useState([])
-  const [symptomOptions, setSymptomOptions] = useState([])
   const [diagnosis, setDiagnosis] = useState('')
   const [age, setAge] = useState('')
   const [gender, setGender] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [report, setReport] = useState(null)
-  const [history, setHistory] = useState([])
   const reportRef = useRef(null)
 
-  // Declared before the effect that calls it: the effect only runs after render,
-  // so the old ordering happened to work, but referencing a `const` above its
-  // declaration is a temporal-dead-zone hazard the moment anything calls it earlier.
-  const refreshHistory = () =>
-    getClinicalHistory({ page_size: 6 })
-      .then((d) => setHistory(d.items || []))
-      .catch(() => setHistory([]))
+  const scrollToReport = () =>
+    // Bring the report into view on small screens.
+    setTimeout(() => reportRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 60)
 
   // Symptom autocomplete reuses the disease-prediction symptom vocabulary.
-  useEffect(() => {
-    getSymptoms().then(setSymptomOptions).catch(() => setSymptomOptions([]))
-    refreshHistory()
-  }, [])
+  const { data: symptomOptions = [] } = useApiQuery({
+    queryKey: qk.clinical.symptomOptions(),
+    queryFn: getSymptoms,
+    toastErrors: false,
+  })
 
-  const run = async () => {
-    if (!medicines.length && !symptoms.length && !diagnosis.trim()) {
-      toast.error('Add at least one medicine, symptom, or a diagnosis.')
-      return
-    }
-    setLoading(true)
-    setReport(null)
-    try {
-      const data = await analyzeClinical({
+  const { data: historyPage } = useApiQuery({
+    queryKey: qk.clinical.history(),
+    queryFn: () => getClinicalHistory({ page_size: 6 }),
+    toastErrors: false,
+  })
+  const history = historyPage?.items ?? []
+
+  const analyze = useApiMutation({
+    mutationFn: () =>
+      analyzeClinical({
         medicines,
         symptoms,
         diagnosis: diagnosis.trim() || null,
@@ -100,33 +97,41 @@ export default function ClinicalDecision() {
         include_rag: true,
         run_disease_prediction: true,
         persist: true,
-      })
-      setReport(data)
-      refreshHistory()
-      // Bring the report into view on small screens.
-      setTimeout(() => reportRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 60)
-    } catch (err) {
-      toast.error(errorMessage(err, 'Clinical analysis failed. Is the backend running?'))
-    } finally {
-      setLoading(false)
+      }),
+    errorText: 'Clinical analysis failed. Is the backend running?',
+    // `persist: true` above — the recent list is stale as soon as this returns.
+    invalidates: qk.clinical.history(),
+    onSuccess: scrollToReport,
+  })
+
+  // An action, not a query: it exists to replace what is on screen. See the
+  // same pattern on the Evidence tabs.
+  const open = useApiMutation({
+    mutationFn: (id) => getClinicalReport(id),
+    errorText: 'Could not load that report.',
+    onSuccess: () => { analyze.reset(); scrollToReport() },
+  })
+
+  // Newest action wins. This line decides one direction — a fresh report beats
+  // an opened one — and `analyze.reset()` in the open handler decides the
+  // other. Resetting `open` here as well would be unobservable.
+  const report = analyze.data ?? open.data ?? null
+  const loading = analyze.isPending || open.isPending
+
+  const run = () => {
+    if (!medicines.length && !symptoms.length && !diagnosis.trim()) {
+      toast.error('Add at least one medicine, symptom, or a diagnosis.')
+      return
     }
+    analyze.mutate()
   }
 
-  const openHistory = async (id) => {
-    setLoading(true)
-    try {
-      setReport(await getClinicalReport(id))
-      setTimeout(() => reportRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 60)
-    } catch (err) {
-      toast.error(errorMessage(err, 'Could not load that report.'))
-    } finally {
-      setLoading(false)
-    }
-  }
+  const openHistory = (id) => open.mutate(id)
 
   const reset = () => {
     setMedicines([]); setSymptoms([]); setDiagnosis(''); setAge(''); setGender('')
-    setReport(null)
+    analyze.reset()
+    open.reset()
   }
 
   return (
