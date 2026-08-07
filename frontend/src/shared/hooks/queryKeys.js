@@ -24,6 +24,8 @@ export const qk = {
     all: ['history'],
     list: (params) => ['history', 'list', params],
     stats: () => ['history', 'stats'],
+    medicines: () => ['history', 'medicines'],
+    item: (id) => ['history', 'item', id],
   },
   clinical: {
     all: ['clinical'],

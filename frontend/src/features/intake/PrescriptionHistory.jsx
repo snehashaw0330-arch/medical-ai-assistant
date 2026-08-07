@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import {
   History,
@@ -37,9 +38,13 @@ import {
   historyImageUrl,
 } from '@/lib/api'
 import { generatePrescriptionPdf, urlToDataUrl } from '@/lib/pdf'
-import { formatDate, titleCase, confidenceColor, pct, freqText, errorMessage, isIdentified } from '@/lib/utils'
+import { useApiQuery } from '@/shared/hooks/useApiQuery'
+import { useApiMutation } from '@/shared/hooks/useApiMutation'
+import { qk } from '@/shared/hooks/queryKeys'
+import { formatDate, titleCase, confidenceColor, pct, freqText, isIdentified } from '@/lib/utils'
 
 const PAGE_SIZE = 8
+const EMPTY_PAGE = { items: [], total: 0, page: 1, pages: 0 }
 
 // Trigger a client-side file download from an in-memory blob.
 function downloadBlob(filename, blob) {
@@ -290,12 +295,8 @@ function DetailModal({ record, onClose, onPdf, onJson, onDelete, busy }) {
 //  Page
 // ============================================================
 export default function PrescriptionHistory() {
-  const [stats, setStats] = useState(null)
-  const [data, setData] = useState({ items: [], total: 0, page: 1, pages: 0 })
-  const [medicines, setMedicines] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [busyId, setBusyId] = useState(null)
-  const [detail, setDetail] = useState(null)
+  // The open record is an id; the record itself is a cached query.
+  const [detailId, setDetailId] = useState('')
 
   // Filters
   const [search, setSearch] = useState('')      // bound to the input
@@ -312,76 +313,67 @@ export default function PrescriptionHistory() {
     return () => clearTimeout(t)
   }, [search])
 
-  const loadStats = useCallback(async () => {
-    try {
-      const [s, meds] = await Promise.all([getHistoryStats(), getHistoryMedicines()])
-      setStats(s)
-      setMedicines(meds)
-    } catch { /* non-fatal: stats are supplementary */ }
-  }, [])
+  // Stats and the medicine filter list are supplementary — the page works
+  // without them, which is why neither ever toasted a failure.
+  const { data: stats } = useApiQuery({
+    queryKey: qk.history.stats(),
+    queryFn: getHistoryStats,
+    toastErrors: false,
+  })
+  const { data: medicines = [] } = useApiQuery({
+    queryKey: qk.history.medicines(),
+    queryFn: getHistoryMedicines,
+    toastErrors: false,
+  })
 
-  const loadList = useCallback(async () => {
-    setLoading(true)
-    try {
-      const res = await getHistory({
-        q: query,
-        medicine,
-        sort,
-        page,
-        page_size: PAGE_SIZE,
-        date_from: dateFrom || undefined,
-        // Make the upper bound inclusive of the whole selected day.
-        date_to: dateTo ? `${dateTo}T23:59:59` : undefined,
-      })
-      setData(res)
-    } catch (err) {
-      toast.error(errorMessage(err, 'Could not load history'))
-    } finally {
-      setLoading(false)
-    }
-  }, [query, medicine, sort, page, dateFrom, dateTo])
-
-  // Data-fetching effects: these intentionally set a loading flag before the
-  // request resolves, which is the canonical pattern for fetch-on-mount/deps.
-  // eslint-disable-next-line react-hooks/set-state-in-effect
-  useEffect(() => { loadStats() }, [loadStats])
-  // eslint-disable-next-line react-hooks/set-state-in-effect
-  useEffect(() => { loadList() }, [loadList])
-
-  const refresh = () => { loadList(); loadStats() }
-
-  // ---- record actions (fetch full detail on demand for downloads) ----
-  const openDetail = async (id) => {
-    setBusyId(id)
-    try {
-      setDetail(await getHistoryItem(id))
-    } catch (err) {
-      toast.error(errorMessage(err, 'Could not open record'))
-    } finally {
-      setBusyId(null)
-    }
+  // Keyed on `query` (debounced), not `search` (the box).
+  const filters = {
+    q: query,
+    medicine,
+    sort,
+    page,
+    page_size: PAGE_SIZE,
+    date_from: dateFrom || undefined,
+    // Make the upper bound inclusive of the whole selected day.
+    date_to: dateTo ? `${dateTo}T23:59:59` : undefined,
   }
 
-  const fullRecord = async (id) => (detail?.id === id ? detail : getHistoryItem(id))
+  const { data = EMPTY_PAGE, isPending: loading } = useApiQuery({
+    queryKey: qk.history.list(filters),
+    queryFn: () => getHistory(filters),
+    errorText: 'Could not load history',
+  })
 
-  const downloadJson = async (id) => {
-    setBusyId(id)
-    try {
-      const rec = await fullRecord(id)
+  const { data: detail, isFetching: opening } = useApiQuery({
+    queryKey: qk.history.item(detailId),
+    queryFn: () => getHistoryItem(detailId),
+    enabled: Boolean(detailId),
+    errorText: 'Could not open record',
+  })
+
+  // Downloads need the full record, which the open one already is. `fetchQuery`
+  // reads the cache when it can and fetches when it cannot — the same thing the
+  // old `detail?.id === id ? detail : getHistoryItem(id)` did by hand, minus
+  // the assumption that only the *currently open* record could be cached.
+  const queryClient = useQueryClient()
+  const fullRecord = (id) =>
+    queryClient.fetchQuery({
+      queryKey: qk.history.item(id),
+      queryFn: () => getHistoryItem(id),
+    })
+
+  const exportJson = useApiMutation({
+    mutationFn: (id) => fullRecord(id),
+    errorText: 'Could not export JSON',
+    onSuccess: (rec) =>
       downloadBlob(
         `medisense-history-${(rec.filename || rec.id).replace(/\.[^.]+$/, '')}.json`,
         new Blob([JSON.stringify(rec, null, 2)], { type: 'application/json' }),
-      )
-    } catch (err) {
-      toast.error(errorMessage(err, 'Could not export JSON'))
-    } finally {
-      setBusyId(null)
-    }
-  }
+      ),
+  })
 
-  const downloadPdf = async (id) => {
-    setBusyId(id)
-    try {
+  const exportPdf = useApiMutation({
+    mutationFn: async (id) => {
       const rec = await fullRecord(id)
       const imageDataUrl = rec.has_image ? await urlToDataUrl(historyImageUrl(rec.id)) : null
       await generatePrescriptionPdf({
@@ -392,39 +384,49 @@ export default function PrescriptionHistory() {
         fileName: rec.filename,
         notes: rec.doctor_notes,
       })
-    } catch (err) {
-      toast.error(errorMessage(err, 'Could not generate PDF'))
-    } finally {
-      setBusyId(null)
-    }
-  }
+    },
+    errorText: 'Could not generate PDF',
+  })
 
-  const removeRecord = async (id) => {
-    setBusyId(id)
-    try {
-      await deleteHistoryItem(id)
-      toast.success('Record deleted')
-      if (detail?.id === id) setDetail(null)
+  const remove = useApiMutation({
+    mutationFn: (id) => deleteHistoryItem(id),
+    successText: 'Record deleted',
+    errorText: 'Could not delete record',
+    invalidates: qk.history.all,
+    onSuccess: (_res, id) => {
+      if (detailId === id) setDetailId('')
       // If we just emptied the current page, step back one.
       if (data.items.length === 1 && page > 1) setPage((p) => p - 1)
-      else refresh()
-    } catch (err) {
-      toast.error(errorMessage(err, 'Could not delete record'))
-    } finally {
-      setBusyId(null)
-    }
-  }
+    },
+  })
 
-  const wipeAll = async () => {
-    if (!window.confirm('Delete the entire prescription history? This cannot be undone.')) return
-    try {
-      const res = await clearHistory()
+  const wipe = useApiMutation({
+    mutationFn: clearHistory,
+    errorText: 'Could not clear history',
+    invalidates: qk.history.all,
+    onSuccess: (res) => {
       toast.success(res.message || 'History cleared')
+      setDetailId('')
       setPage(1)
-      refresh()
-    } catch (err) {
-      toast.error(errorMessage(err, 'Could not clear history'))
-    }
+    },
+  })
+
+  // Whichever row is mid-request, for its inline spinner.
+  const busyId =
+    (opening && detailId) ||
+    (exportJson.isPending && exportJson.variables) ||
+    (exportPdf.isPending && exportPdf.variables) ||
+    (remove.isPending && remove.variables) ||
+    null
+
+  const openDetail = (id) => setDetailId(id)
+  const downloadJson = (id) => exportJson.mutate(id)
+  const downloadPdf = (id) => exportPdf.mutate(id)
+  const removeRecord = (id) => remove.mutate(id)
+
+  const wipeAll = () => {
+    if (!window.confirm('Delete the entire prescription history? This cannot be undone.')) return
+    wipe.mutate()
   }
 
   const hasActiveFilters = query || medicine || dateFrom || dateTo
@@ -580,7 +582,7 @@ export default function PrescriptionHistory() {
       <DetailModal
         record={detail}
         busy={busyId === detail?.id}
-        onClose={() => setDetail(null)}
+        onClose={() => setDetailId('')}
         onPdf={() => downloadPdf(detail.id)}
         onJson={() => downloadJson(detail.id)}
         onDelete={() => removeRecord(detail.id)}
