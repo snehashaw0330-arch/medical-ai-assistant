@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import toast from 'react-hot-toast'
 import {
   Sparkles,
@@ -30,7 +30,10 @@ import {
   getMedicineRecommendations,
   getMedicineRecommendation,
 } from '@/lib/api'
-import { errorMessage, titleCase, formatDate, confidenceColor } from '@/lib/utils'
+import { useApiQuery } from '@/shared/hooks/useApiQuery'
+import { useApiMutation } from '@/shared/hooks/useApiMutation'
+import { qk } from '@/shared/hooks/queryKeys'
+import { titleCase, formatDate, confidenceColor } from '@/lib/utils'
 
 const RX_META = {
   yes: { label: 'Prescription required', tone: 'warning' },
@@ -253,51 +256,56 @@ function MedicineCard({ rec }) {
 
 export default function MedicineRecommendations() {
   const [selected, setSelected] = useState([])
-  const [result, setResult] = useState(null)
-  const [loading, setLoading] = useState(false)
-  const [history, setHistory] = useState([])
+  // Which stored report is being viewed; empty means "show what was just
+  // generated". One id replaces holding a whole report in state.
+  const [reportId, setReportId] = useState('')
 
-  const refreshHistory = () => {
-    getMedicineRecommendations({ page: 1, page_size: 5 })
-      .then((d) => setHistory(d.items || []))
-      .catch(() => {})
-  }
+  const { data: historyPage } = useApiQuery({
+    queryKey: qk.knowledge.recommendations(),
+    queryFn: () => getMedicineRecommendations({ page: 1, page_size: 5 }),
+    errorText: 'Could not load recent recommendations',
+  })
+  const history = historyPage?.items ?? []
 
-  useEffect(() => {
-    refreshHistory()
-  }, [])
+  const { data: stored, isFetching: opening } = useApiQuery({
+    queryKey: qk.knowledge.recommendation(reportId),
+    queryFn: () => getMedicineRecommendation(reportId),
+    enabled: Boolean(reportId),
+    errorText: 'Could not load that report',
+  })
 
-  const run = async () => {
-    if (selected.length === 0) {
-      toast.error('Add at least one medicine')
-      return
-    }
-    setLoading(true)
-    try {
-      const data = await recommendMedicines({
+  const generate = useApiMutation({
+    mutationFn: () =>
+      recommendMedicines({
         medicines: selected,
         include_rag: true,
         max_alternatives: 5,
         persist: true,
-      })
-      setResult(data)
-      refreshHistory()
-    } catch (err) {
-      toast.error(errorMessage(err, 'Could not generate recommendations'))
-    } finally {
-      setLoading(false)
+      }),
+    errorText: 'Could not generate recommendations',
+    // The run persists a report, so the recent list is stale the moment it
+    // returns — this is the `refreshHistory()` the old code called by hand.
+    invalidates: qk.knowledge.recommendations(),
+    onSuccess: () => setReportId(''),
+  })
+
+  const run = () => {
+    if (selected.length === 0) {
+      toast.error('Add at least one medicine')
+      return
     }
+    generate.mutate()
   }
 
-  const openHistory = async (id) => {
-    setLoading(true)
-    try {
-      setResult(await getMedicineRecommendation(id))
-    } catch (err) {
-      toast.error(errorMessage(err, 'Could not load that report'))
-    } finally {
-      setLoading(false)
-    }
+  const result = reportId ? stored : generate.data
+  const loading = generate.isPending || opening
+  const openHistory = (id) => setReportId(id)
+
+  // "Clear" has to drop both sources of a result, not just the selection.
+  const clear = () => {
+    setSelected([])
+    setReportId('')
+    generate.reset()
   }
 
   const medicines = result?.medicines ?? []
@@ -332,7 +340,7 @@ export default function MedicineRecommendations() {
                 <Sparkles size={16} /> Get Recommendations
               </Button>
               {selected.length > 0 && (
-                <Button variant="ghost" onClick={() => { setSelected([]); setResult(null) }} disabled={loading}>Clear</Button>
+                <Button variant="ghost" onClick={clear} disabled={loading}>Clear</Button>
               )}
             </div>
             <p className="mt-3 text-xs text-muted">Recommendations also run automatically after a prescription OCR scan.</p>

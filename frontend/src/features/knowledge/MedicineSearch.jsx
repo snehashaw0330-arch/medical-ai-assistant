@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import toast from 'react-hot-toast'
 import {
   Pill,
   Search,
@@ -15,7 +14,9 @@ import Badge from '@/ui/Badge'
 import { CardSkeleton } from '@/ui/Skeleton'
 import EmptyState from '@/ui/EmptyState'
 import { getMedicineInfo } from '@/lib/api'
-import { errorMessage, titleCase } from '@/lib/utils'
+import { useApiQuery } from '@/shared/hooks/useApiQuery'
+import { qk } from '@/shared/hooks/queryKeys'
+import { titleCase } from '@/lib/utils'
 
 const POPULAR = ['Dolo 650', 'Augmentin 625', 'Azithromycin', 'Pantop 40', 'Telma 40']
 
@@ -38,26 +39,29 @@ function Section({ icon: Icon, title, items, tone = 'neutral' }) {
 }
 
 export default function MedicineSearch() {
+  // Two pieces of state, not one: `query` is what is in the box, `term` is what
+  // has been searched for. Keying the query on the input directly would fire a
+  // lookup on every keystroke.
   const [query, setQuery] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [data, setData] = useState(null)
-  const [notFound, setNotFound] = useState(null)
+  const [term, setTerm] = useState('')
 
-  const search = async (name = query) => {
+  const { data: result, isFetching: loading } = useApiQuery({
+    queryKey: qk.knowledge.medicine(term),
+    queryFn: () => getMedicineInfo(term),
+    enabled: Boolean(term),
+    errorText: 'Lookup failed',
+  })
+
+  // A miss comes back as a 200 carrying `error` and spelling suggestions, so
+  // "not found" is a shape of the result rather than a failure.
+  const notFound = result?.error ? result : null
+  const data = result?.error ? null : result
+
+  const search = (name = query) => {
     const q = name.trim()
     if (!q) return
-    setLoading(true)
-    setData(null)
-    setNotFound(null)
-    try {
-      const res = await getMedicineInfo(q)
-      if (res.error) setNotFound(res)
-      else setData(res)
-    } catch (err) {
-      toast.error(errorMessage(err, 'Lookup failed'))
-    } finally {
-      setLoading(false)
-    }
+    setQuery(q)
+    setTerm(q)
   }
 
   return (
@@ -88,10 +92,7 @@ export default function MedicineSearch() {
           {POPULAR.map((p) => (
             <button
               key={p}
-              onClick={() => {
-                setQuery(p)
-                search(p)
-              }}
+              onClick={() => search(p)}
               className="rounded-full bg-surface-2 px-3 py-1 text-xs font-medium text-foreground hover:bg-primary-soft hover:text-primary"
             >
               {p}
@@ -115,10 +116,7 @@ export default function MedicineSearch() {
                     {notFound.suggestions.map((s) => (
                       <button
                         key={s}
-                        onClick={() => {
-                          setQuery(s)
-                          search(s)
-                        }}
+                        onClick={() => search(s)}
                         className="rounded-full bg-surface px-3 py-1 text-sm font-medium text-primary hover:bg-primary-soft"
                       >
                         {titleCase(s)}
@@ -182,10 +180,7 @@ export default function MedicineSearch() {
                   {data.other_matches.map((m) => (
                     <button
                       key={m.name}
-                      onClick={() => {
-                        setQuery(m.name)
-                        search(m.name)
-                      }}
+                      onClick={() => search(m.name)}
                       className="rounded-full border border-border bg-surface px-3 py-1 text-sm text-foreground hover:bg-surface-2"
                     >
                       {titleCase(m.name)}

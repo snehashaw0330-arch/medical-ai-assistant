@@ -40,6 +40,15 @@ export const qk = {
     twinList: () => ['patients', 'twins'],
     twin: (patientId) => ['patients', 'twin', patientId],
   },
+  knowledge: {
+    all: ['knowledge'],
+    medicine: (name) => ['knowledge', 'medicine', name],
+    // Only the list moves when a report is generated; a stored report never
+    // changes, so these two are deliberately separate keys rather than one
+    // prefix that would re-fetch every report ever opened.
+    recommendations: () => ['knowledge', 'recommendations'],
+    recommendation: (id) => ['knowledge', 'recommendation', id],
+  },
   benchmarks: {
     all: ['benchmarks'],
     datasetInfo: () => ['benchmarks', 'dataset-info'],

@@ -336,15 +336,16 @@ pediatric baseline (risk `moderate` / 51.0, infant red flag).
 | 7a — dependency vulns | **done** | | npm audit 9 -> 2; the 2 assessed as unreachable |
 | 3c — governance shell | **not started** | | see note below |
 | 3d — Chat into Copilot, shared FileIntake | **not started** | | |
-| 5 — TanStack Query migration | **8 of 27 pages** | `0d31210`…`e0044c1` | 197 tests; 22/22 caught; `useState` 202 → 182 |
+| 5 — TanStack Query migration | **10 of 27 pages** | `0d31210`…`41c90b1` | 203 tests; 27/28 caught; `useState` 202 → 178 |
 | 6 — backend consolidation | **not started** | | 16 duplicated engine blocks untouched |
 | 7 — coverage & hardening | **not started** | | incl. the parked npm audit bumps |
 
 All work is on the `architecture-overhaul` branch; `main` is untouched.
 
 **Note on 5.** Migrated so far: `AuditLogs`, `ModelRegistry`, `DatasetRegistry`,
-`PatientContext`, `DigitalTwin`, `PipelineViewer`, `AgentMonitor`, `DatasetEvaluation` —
-tranches 1 and 2 (read-only, then polling) complete. **No server polling is hand-rolled any
+`PatientContext`, `DigitalTwin`, `PipelineViewer`, `AgentMonitor`, `DatasetEvaluation`,
+`MedicineSearch`, `MedicineRecommendations` — tranches 1 and 2 (read-only, then polling)
+complete, tranche 3 (forms) started with the two Medicines tabs. **No server polling is hand-rolled any
 more**: the four remaining `setInterval` calls in `features/` are UI animation timers (step
 cycling, a typewriter, an elapsed clock), which are not server state and stay as they are. Two behaviours the migration introduced were carried for
 several commits with no working test — mutation invalidation and dependent queries — because
@@ -359,8 +360,8 @@ urgent, and it should use the same `tabGroup` mechanism 3b introduced rather tha
 shell.
 
 Each phase is mutation-tested, not just run: the suite is re-verified by deliberately
-breaking things and confirming it fails. **56 mutations introduced across six phases, 56
-caught** — five of them only after a gap in the tests was found and closed. Every gap below
+breaking things and confirming it fails. **62 mutations introduced across six phases, 61
+caught and one a proven no-op** — six of them only after a gap in the tests was found and closed. Every gap below
 was found by breaking code, none by reading it.
 
 * **Phase 1 hid page crashes.** The new per-route error boundary swallowed a throwing page,
@@ -407,6 +408,11 @@ level of coverage for the piece of behaviour that was previously order-dependent
   therefore assert the *stop*: after a terminal status the request count must not move
   again. They run on real timers and take a few seconds, because fake timers stall RTL's
   `waitFor` — it detects them through a `jest` global this project does not have.
+* **A search box is where this migration can quietly get much worse.** Key the query on the
+  input rather than on an applied term and every keystroke becomes a request — "Augmentin"
+  is nine lookups and the page looks entirely normal. `MedicineSearch` keeps `query` (the
+  box) separate from `term` (what was searched), and the test types eight characters and
+  asserts zero requests.
 * **Phase 5's two behaviours had no working test.** With the harness fixed, mutation
   invalidation and dependent queries were covered properly: 10 mutations across
   `useApiMutation`, `PatientContext`, `DigitalTwin`, `ModelRegistry` and `DatasetRegistry`,
