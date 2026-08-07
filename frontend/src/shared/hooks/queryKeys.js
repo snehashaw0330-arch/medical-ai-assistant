@@ -32,6 +32,8 @@ export const qk = {
   reports: {
     all: ['reports'],
     stats: () => ['reports', 'stats'],
+    list: (filters) => ['reports', 'list', filters],
+    detail: (id) => ['reports', 'detail', id],
   },
   patients: {
     all: ['patients'],

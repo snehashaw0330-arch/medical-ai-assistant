@@ -1,5 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import toast from 'react-hot-toast'
+import { useEffect, useMemo, useState } from 'react'
 import {
   FileText,
   Search,
@@ -31,9 +30,13 @@ import {
   deleteReport,
   fetchReportBlob,
 } from '@/lib/api'
-import { formatDate, titleCase, confidenceColor, pct, errorMessage } from '@/lib/utils'
+import { useApiQuery } from '@/shared/hooks/useApiQuery'
+import { useApiMutation } from '@/shared/hooks/useApiMutation'
+import { qk } from '@/shared/hooks/queryKeys'
+import { formatDate, titleCase, confidenceColor, pct } from '@/lib/utils'
 
 const PAGE_SIZE = 8
+const EMPTY_PAGE = { items: [], total: 0, page: 1, pages: 0 }
 
 // Risk level → badge tone (mirrors ClinicalReport / backend RiskLevel).
 const RISK_TONE = { critical: 'danger', high: 'danger', moderate: 'warning', low: 'primary' }
@@ -172,11 +175,8 @@ function ViewerModal({ report, busy, onClose, onPdf, onJson, onHtml, onDelete })
 //  Page
 // ============================================================
 export default function MedicalReports() {
-  const [stats, setStats] = useState(null)
-  const [data, setData] = useState({ items: [], total: 0, page: 1, pages: 0 })
-  const [loading, setLoading] = useState(true)
-  const [busyId, setBusyId] = useState(null)
-  const [detail, setDetail] = useState(null)
+  // The open report is an id; the report itself is a cached query.
+  const [detailId, setDetailId] = useState('')
 
   // Filters
   const [search, setSearch] = useState('')
@@ -197,75 +197,72 @@ export default function MedicalReports() {
     return () => clearTimeout(t)
   }, [patient])
 
-  const loadStats = useCallback(async () => {
-    try { setStats(await getReportStats()) } catch { /* supplementary */ }
-  }, [])
+  const { data: stats } = useApiQuery({
+    queryKey: qk.reports.stats(),
+    queryFn: getReportStats,
+    // Supplementary counters; the page is perfectly usable without them, which
+    // is why this one never toasted.
+    toastErrors: false,
+  })
 
-  const loadList = useCallback(async () => {
-    setLoading(true)
-    try {
-      setData(await getReports({
-        q: query,
-        patient: patientQuery,
-        page,
-        page_size: PAGE_SIZE,
-        date_from: dateFrom || undefined,
-        date_to: dateTo ? `${dateTo}T23:59:59` : undefined,
-      }))
-    } catch (err) {
-      toast.error(errorMessage(err, 'Could not load reports'))
-    } finally {
-      setLoading(false)
-    }
-  }, [query, patientQuery, page, dateFrom, dateTo])
-
-  // Fetch-on-deps: setting a loading flag before the request resolves is the
-  // canonical pattern here (mirrors PrescriptionHistory).
-  // eslint-disable-next-line react-hooks/set-state-in-effect
-  useEffect(() => { loadStats() }, [loadStats])
-  // eslint-disable-next-line react-hooks/set-state-in-effect
-  useEffect(() => { loadList() }, [loadList])
-
-  const refresh = () => { loadList(); loadStats() }
-
-  const openDetail = async (id) => {
-    setBusyId(id)
-    try {
-      setDetail(await getReport(id))
-    } catch (err) {
-      toast.error(errorMessage(err, 'Could not open report'))
-    } finally {
-      setBusyId(null)
-    }
+  // Keyed on the *applied* filters — `query` and `patientQuery`, not the two
+  // boxes they are debounced from — so typing does not refetch per keystroke.
+  const filters = {
+    q: query,
+    patient: patientQuery,
+    page,
+    page_size: PAGE_SIZE,
+    date_from: dateFrom || undefined,
+    date_to: dateTo ? `${dateTo}T23:59:59` : undefined,
   }
 
-  const download = async (id, format, ext = format) => {
-    setBusyId(id)
-    try {
-      const blob = await fetchReportBlob(id, format)
+  const { data = EMPTY_PAGE, isPending: loading } = useApiQuery({
+    queryKey: qk.reports.list(filters),
+    queryFn: () => getReports(filters),
+    errorText: 'Could not load reports',
+  })
+
+  const { data: detail, isFetching: opening } = useApiQuery({
+    queryKey: qk.reports.detail(detailId),
+    queryFn: () => getReport(detailId),
+    enabled: Boolean(detailId),
+    errorText: 'Could not open report',
+  })
+
+  const download = useApiMutation({
+    mutationFn: ({ id, format }) => fetchReportBlob(id, format),
+    errorText: 'Could not download the report',
+    onSuccess: (blob, { id, format, ext = format }) => {
       const name = detail?.id === id ? detail?.content?.filename : id
       downloadBlob(`medisense-report-${String(name || id).replace(/\.[^.]+$/, '')}.${ext}`, blob)
-    } catch (err) {
-      toast.error(errorMessage(err, `Could not download ${format.toUpperCase()}`))
-    } finally {
-      setBusyId(null)
-    }
-  }
+    },
+  })
 
-  const removeReport = async (id) => {
-    if (!window.confirm('Delete this report? This cannot be undone.')) return
-    setBusyId(id)
-    try {
-      await deleteReport(id)
-      toast.success('Report deleted')
-      if (detail?.id === id) setDetail(null)
+  const remove = useApiMutation({
+    mutationFn: (id) => deleteReport(id),
+    successText: 'Report deleted',
+    errorText: 'Could not delete report',
+    // Both the list and the counters move when a report goes.
+    invalidates: qk.reports.all,
+    onSuccess: (_data, id) => {
+      if (detailId === id) setDetailId('')
+      // Deleting the last row of a page would otherwise leave the user on an
+      // empty page that no longer exists.
       if (data.items.length === 1 && page > 1) setPage((p) => p - 1)
-      else refresh()
-    } catch (err) {
-      toast.error(errorMessage(err, 'Could not delete report'))
-    } finally {
-      setBusyId(null)
-    }
+    },
+  })
+
+  // Whichever row is mid-request, for its inline spinner.
+  const busyId =
+    (opening && detailId) ||
+    (download.isPending && download.variables?.id) ||
+    (remove.isPending && remove.variables) ||
+    null
+
+  const openDetail = (id) => setDetailId(id)
+  const removeReport = (id) => {
+    if (!window.confirm('Delete this report? This cannot be undone.')) return
+    remove.mutate(id)
   }
 
   const hasActiveFilters = query || patientQuery || dateFrom || dateTo
@@ -356,9 +353,9 @@ export default function MedicalReports() {
                   item={item}
                   busy={busyId === item.id}
                   onView={() => openDetail(item.id)}
-                  onPdf={() => download(item.id, 'pdf')}
-                  onJson={() => download(item.id, 'json')}
-                  onHtml={() => download(item.id, 'html')}
+                  onPdf={() => download.mutate({ id: item.id, format: 'pdf' })}
+                  onJson={() => download.mutate({ id: item.id, format: 'json' })}
+                  onHtml={() => download.mutate({ id: item.id, format: 'html' })}
                   onDelete={() => removeReport(item.id)}
                 />
               ))}
@@ -390,10 +387,10 @@ export default function MedicalReports() {
       <ViewerModal
         report={detail}
         busy={busyId === detail?.id}
-        onClose={() => setDetail(null)}
-        onPdf={() => download(detail.id, 'pdf')}
-        onJson={() => download(detail.id, 'json')}
-        onHtml={() => download(detail.id, 'html')}
+        onClose={() => setDetailId('')}
+        onPdf={() => download.mutate({ id: detail.id, format: 'pdf' })}
+        onJson={() => download.mutate({ id: detail.id, format: 'json' })}
+        onHtml={() => download.mutate({ id: detail.id, format: 'html' })}
         onDelete={() => removeReport(detail.id)}
       />
     </div>
