@@ -51,6 +51,11 @@ export const qk = {
     ragStatus: () => ['knowledge', 'rag-status'],
     answer: (question) => ['knowledge', 'answer', question],
   },
+  evidence: {
+    all: ['evidence'],
+    verifications: () => ['evidence', 'verifications'],
+    records: () => ['evidence', 'records'],
+  },
   benchmarks: {
     all: ['benchmarks'],
     datasetInfo: () => ['benchmarks', 'dataset-info'],

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import toast from 'react-hot-toast'
 import {
   ShieldCheck,
@@ -13,7 +13,10 @@ import Badge from '@/ui/Badge'
 import EmptyState from '@/ui/EmptyState'
 import EvidenceVerificationPanel from '@/shared/reports/EvidenceVerificationPanel'
 import { checkVerification, getVerificationHistory, getVerificationReport } from '@/lib/api'
-import { errorMessage, formatDate } from '@/lib/utils'
+import { useApiQuery } from '@/shared/hooks/useApiQuery'
+import { useApiMutation } from '@/shared/hooks/useApiMutation'
+import { qk } from '@/shared/hooks/queryKeys'
+import { formatDate } from '@/lib/utils'
 
 const RISK_TONE = { very_low: 'success', low: 'success', medium: 'warning', high: 'danger', critical: 'danger' }
 
@@ -24,19 +27,59 @@ export default function EvidenceVerification() {
   const [question, setQuestion] = useState('')
   const [response, setResponse] = useState('')
   const [generate, setGenerate] = useState(true)
-  const [loading, setLoading] = useState(false)
-  const [result, setResult] = useState(null)
-  const [history, setHistory] = useState([])
   const resultRef = useRef(null)
 
-  const refreshHistory = () =>
-    getVerificationHistory({ page_size: 8 }).then((d) => setHistory(d.items || [])).catch(() => setHistory([]))
+  const scrollToResult = () =>
+    setTimeout(() => resultRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 60)
 
-  useEffect(() => {
-    refreshHistory()
-  }, [])
+  const { data: historyPage } = useApiQuery({
+    queryKey: qk.evidence.verifications(),
+    queryFn: () => getVerificationHistory({ page_size: 8 }),
+    errorText: 'Could not load past verifications',
+  })
+  const history = historyPage?.items ?? []
 
-  const run = async () => {
+  const verify = useApiMutation({
+    mutationFn: () =>
+      checkVerification({
+        question: question.trim(),
+        response: response.trim() || null,
+        generate_if_missing: generate,
+        source_module: 'manual',
+        use_cache: true,
+        persist: true,
+      }),
+    errorText: 'Verification failed. Is the backend running?',
+    // Every verification is persisted, so the history list below is stale.
+    invalidates: qk.evidence.verifications(),
+    onSuccess: (data) => {
+      if (data.generated && !response.trim()) setResponse(data.response)
+      scrollToResult()
+    },
+  })
+
+  // Opening a past verification is a mutation rather than a query because its
+  // whole point is to *write into the form* — question and response boxes — as
+  // a one-time consequence of the click. As a query that would need an effect
+  // syncing state to fetched data, which is the pattern this phase removes.
+  const open = useApiMutation({
+    mutationFn: (id) => getVerificationReport(id),
+    errorText: 'Could not load that verification.',
+    onSuccess: (data) => {
+      setQuestion(data.question || '')
+      setResponse(data.response || '')
+      verify.reset()
+      scrollToResult()
+    },
+  })
+
+  // A fresh verification wins over one opened from history; opening clears the
+  // verification so the reverse also holds. Only one reset is needed for that —
+  // the other direction is already decided here.
+  const result = verify.data ?? open.data ?? null
+  const loading = verify.isPending || open.isPending
+
+  const run = () => {
     if (!question.trim()) {
       toast.error('Enter a question first.')
       return
@@ -45,44 +88,17 @@ export default function EvidenceVerification() {
       toast.error('Provide a response to verify, or enable "generate from knowledge base".')
       return
     }
-    setLoading(true)
-    setResult(null)
-    try {
-      const data = await checkVerification({
-        question: question.trim(),
-        response: response.trim() || null,
-        generate_if_missing: generate,
-        source_module: 'manual',
-        use_cache: true,
-        persist: true,
-      })
-      setResult(data)
-      if (data.generated && !response.trim()) setResponse(data.response)
-      refreshHistory()
-      setTimeout(() => resultRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 60)
-    } catch (err) {
-      toast.error(errorMessage(err, 'Verification failed. Is the backend running?'))
-    } finally {
-      setLoading(false)
-    }
+    verify.mutate()
   }
 
-  const openHistory = async (id) => {
-    setLoading(true)
-    try {
-      const data = await getVerificationReport(id)
-      setResult(data)
-      setQuestion(data.question || '')
-      setResponse(data.response || '')
-      setTimeout(() => resultRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 60)
-    } catch (err) {
-      toast.error(errorMessage(err, 'Could not load that verification.'))
-    } finally {
-      setLoading(false)
-    }
-  }
+  const openHistory = (id) => open.mutate(id)
 
-  const reset = () => { setQuestion(''); setResponse(''); setResult(null) }
+  const reset = () => {
+    setQuestion('')
+    setResponse('')
+    verify.reset()
+    open.reset()
+  }
 
   return (
     <div className="grid gap-6 lg:grid-cols-5">

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import toast from 'react-hot-toast'
 import {
   Library,
@@ -27,7 +27,10 @@ import {
   getEvidenceRecord,
 } from '@/lib/api'
 import { generateEvidenceReportPdf } from '@/lib/pdf'
-import { errorMessage, formatDate, cn } from '@/lib/utils'
+import { useApiQuery } from '@/shared/hooks/useApiQuery'
+import { useApiMutation } from '@/shared/hooks/useApiMutation'
+import { qk } from '@/shared/hooks/queryKeys'
+import { formatDate, cn } from '@/lib/utils'
 
 const inputCls =
   'w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-primary'
@@ -41,68 +44,74 @@ function renderHighlighted(text = '') {
 export default function EvidenceExplorer() {
   const [mode, setMode] = useState('query') // 'query' | 'chat'
   const [input, setInput] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [result, setResult] = useState(null)
   const [turns, setTurns] = useState([]) // chat mode transcript: [{ role, content, result? }]
   const [sessionId, setSessionId] = useState(null)
-  const [history, setHistory] = useState([])
   const resultRef = useRef(null)
 
-  const refreshHistory = () =>
-    getEvidenceHistory({ page_size: 8 }).then((d) => setHistory(d.items || [])).catch(() => setHistory([]))
+  const scrollToResult = () =>
+    setTimeout(() => resultRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 60)
 
-  useEffect(() => {
-    refreshHistory()
-  }, [])
+  const { data: historyPage } = useApiQuery({
+    queryKey: qk.evidence.records(),
+    queryFn: () => getEvidenceHistory({ page_size: 8 }),
+    errorText: 'Could not load past evidence records',
+  })
+  const history = historyPage?.items ?? []
 
-  const run = async () => {
+  // Ask and open are both mutations: each one's real job is to append to the
+  // transcript or reset the mode — consequences of a click, not server state
+  // being rendered. `persist: true` is why both invalidate the history list.
+  const ask = useApiMutation({
+    mutationFn: (text) =>
+      mode === 'chat'
+        ? chatEvidence({ session_id: sessionId, message: text, persist: true })
+        : queryEvidence({ query: text, persist: true }),
+    errorText: 'Evidence query failed. Is the backend running?',
+    invalidates: qk.evidence.records(),
+    onSuccess: (data) => {
+      if (mode === 'chat') {
+        setSessionId(data.session_id)
+        setTurns((t) => [...t, { role: 'assistant', content: data.response, result: data }])
+      }
+      scrollToResult()
+    },
+  })
+
+  const open = useApiMutation({
+    mutationFn: (id) => getEvidenceRecord(id),
+    errorText: 'Could not load that evidence record.',
+    onSuccess: () => {
+      // Leaving chat mode is what hides the transcript; clearing it as well
+      // would be belt and braces, and the mode buttons already reset it.
+      setMode('query')
+      ask.reset()
+      scrollToResult()
+    },
+  })
+
+  const result = ask.data ?? open.data ?? null
+  const loading = ask.isPending || open.isPending
+
+  const run = () => {
     const text = input.trim()
     if (!text) {
       toast.error('Enter a medical question first.')
       return
     }
-    setLoading(true)
     setInput('')
-    try {
-      if (mode === 'chat') {
-        setTurns((t) => [...t, { role: 'user', content: text }])
-        const data = await chatEvidence({ session_id: sessionId, message: text, persist: true })
-        setSessionId(data.session_id)
-        setTurns((t) => [...t, { role: 'assistant', content: data.response, result: data }])
-        setResult(data)
-      } else {
-        const data = await queryEvidence({ query: text, persist: true })
-        setResult(data)
-      }
-      refreshHistory()
-      setTimeout(() => resultRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 60)
-    } catch (err) {
-      toast.error(errorMessage(err, 'Evidence query failed. Is the backend running?'))
-    } finally {
-      setLoading(false)
-    }
+    // The user's turn goes up immediately; the assistant's follows the answer.
+    if (mode === 'chat') setTurns((t) => [...t, { role: 'user', content: text }])
+    ask.mutate(text)
   }
 
-  const openHistory = async (id) => {
-    setLoading(true)
-    try {
-      const data = await getEvidenceRecord(id)
-      setResult(data)
-      setMode('query')
-      setTurns([])
-      setTimeout(() => resultRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 60)
-    } catch (err) {
-      toast.error(errorMessage(err, 'Could not load that evidence record.'))
-    } finally {
-      setLoading(false)
-    }
-  }
+  const openHistory = (id) => open.mutate(id)
 
   const reset = () => {
     setInput('')
-    setResult(null)
     setTurns([])
     setSessionId(null)
+    ask.reset()
+    open.reset()
   }
 
   return (

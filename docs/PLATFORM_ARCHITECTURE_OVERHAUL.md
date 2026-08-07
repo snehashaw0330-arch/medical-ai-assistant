@@ -336,7 +336,7 @@ pediatric baseline (risk `moderate` / 51.0, infant red flag).
 | 7a — dependency vulns | **done** | | npm audit 9 -> 2; the 2 assessed as unreachable |
 | 3c — governance shell | **not started** | | see note below |
 | 3d — Chat into Copilot, shared FileIntake | **not started** | | |
-| 5 — TanStack Query migration | **11 of 27 pages** | `0d31210`…`baaeb18` | 206 tests; 31/32 caught; `useState` 202 → 173 |
+| 5 — TanStack Query migration | **13 of 27 pages** | `0d31210`…`ebbef90` | 214 tests; 37/38 caught; `useState` 202 → 167 |
 | 6 — backend consolidation | **not started** | | 16 duplicated engine blocks untouched |
 | 7 — coverage & hardening | **not started** | | incl. the parked npm audit bumps |
 
@@ -344,8 +344,9 @@ All work is on the `architecture-overhaul` branch; `main` is untouched.
 
 **Note on 5.** Migrated so far: `AuditLogs`, `ModelRegistry`, `DatasetRegistry`,
 `PatientContext`, `DigitalTwin`, `PipelineViewer`, `AgentMonitor`, `DatasetEvaluation`,
-`MedicineSearch`, `MedicineRecommendations`, `KnowledgeBase` — tranches 1 and 2 (read-only,
-then polling) complete, tranche 3 (forms) under way. `useApiQuery`/`useApiMutation` grew one
+`MedicineSearch`, `MedicineRecommendations`, `KnowledgeBase`, `EvidenceVerification`,
+`EvidenceExplorer` — tranches 1 and 2 (read-only, then polling) complete, and the whole
+Knowledge group is now migrated. `useApiQuery`/`useApiMutation` grew one
 option in the process: `toastErrors: false`, for pages that render the failure inline. It is
 opt-out, so the default stays "the toast cannot be forgotten". **No server polling is hand-rolled any
 more**: the four remaining `setInterval` calls in `features/` are UI animation timers (step
@@ -362,8 +363,8 @@ urgent, and it should use the same `tabGroup` mechanism 3b introduced rather tha
 shell.
 
 Each phase is mutation-tested, not just run: the suite is re-verified by deliberately
-breaking things and confirming it fails. **66 mutations introduced across six phases, 65
-caught and one a proven no-op** — six of them only after a gap in the tests was found and closed. Every gap below
+breaking things and confirming it fails. **76 mutations introduced across six phases, 73
+caught, one a proven no-op and two redundant code** — seven of them only after a gap in the tests was found and closed. Every gap below
 was found by breaking code, none by reading it.
 
 * **Phase 1 hid page crashes.** The new per-route error boundary swallowed a throwing page,
@@ -415,6 +416,17 @@ level of coverage for the piece of behaviour that was previously order-dependent
   is nine lookups and the page looks entirely normal. `MedicineSearch` keeps `query` (the
   box) separate from `term` (what was searched), and the test types eight characters and
   asserts zero requests.
+* **An assertion can watch the wrong element and never say so.** The first Evidence tests
+  asserted the verification response text appeared after a verify — and it did, in the
+  *form textarea*, which the page fills from the response. The result panel renders
+  `verdict` and `metrics`, so the panel could have rendered nothing at all and the test
+  would still have passed. Found by mutation: flipping the result precedence changed
+  nothing. The fixtures now carry a distinct `verdict` per source, so each assertion names
+  which result is on screen.
+* **Not every surviving mutation is a test gap.** Three survived here; one was a genuine
+  gap, one a no-op, and two were redundant code — a reset the precedence rule already
+  decided, and a `setTurns([])` that `setMode('query')` already covered. Both were deleted
+  rather than pinned with a test that would have been asserting nothing.
 * **Phase 5's two behaviours had no working test.** With the harness fixed, mutation
   invalidation and dependent queries were covered properly: 10 mutations across
   `useApiMutation`, `PatientContext`, `DigitalTwin`, `ModelRegistry` and `DatasetRegistry`,
