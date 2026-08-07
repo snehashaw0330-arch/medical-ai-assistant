@@ -336,7 +336,7 @@ pediatric baseline (risk `moderate` / 51.0, infant red flag).
 | 7a — dependency vulns | **done** | | npm audit 9 -> 2; the 2 assessed as unreachable |
 | 3c — governance shell | **not started** | | see note below |
 | 3d — Chat into Copilot, shared FileIntake | **not started** | | |
-| 5 — TanStack Query migration | **10 of 27 pages** | `0d31210`…`41c90b1` | 203 tests; 27/28 caught; `useState` 202 → 178 |
+| 5 — TanStack Query migration | **11 of 27 pages** | `0d31210`…`baaeb18` | 206 tests; 31/32 caught; `useState` 202 → 173 |
 | 6 — backend consolidation | **not started** | | 16 duplicated engine blocks untouched |
 | 7 — coverage & hardening | **not started** | | incl. the parked npm audit bumps |
 
@@ -344,8 +344,10 @@ All work is on the `architecture-overhaul` branch; `main` is untouched.
 
 **Note on 5.** Migrated so far: `AuditLogs`, `ModelRegistry`, `DatasetRegistry`,
 `PatientContext`, `DigitalTwin`, `PipelineViewer`, `AgentMonitor`, `DatasetEvaluation`,
-`MedicineSearch`, `MedicineRecommendations` — tranches 1 and 2 (read-only, then polling)
-complete, tranche 3 (forms) started with the two Medicines tabs. **No server polling is hand-rolled any
+`MedicineSearch`, `MedicineRecommendations`, `KnowledgeBase` — tranches 1 and 2 (read-only,
+then polling) complete, tranche 3 (forms) under way. `useApiQuery`/`useApiMutation` grew one
+option in the process: `toastErrors: false`, for pages that render the failure inline. It is
+opt-out, so the default stays "the toast cannot be forgotten". **No server polling is hand-rolled any
 more**: the four remaining `setInterval` calls in `features/` are UI animation timers (step
 cycling, a typewriter, an elapsed clock), which are not server state and stay as they are. Two behaviours the migration introduced were carried for
 several commits with no working test — mutation invalidation and dependent queries — because
@@ -360,7 +362,7 @@ urgent, and it should use the same `tabGroup` mechanism 3b introduced rather tha
 shell.
 
 Each phase is mutation-tested, not just run: the suite is re-verified by deliberately
-breaking things and confirming it fails. **62 mutations introduced across six phases, 61
+breaking things and confirming it fails. **66 mutations introduced across six phases, 65
 caught and one a proven no-op** — six of them only after a gap in the tests was found and closed. Every gap below
 was found by breaking code, none by reading it.
 

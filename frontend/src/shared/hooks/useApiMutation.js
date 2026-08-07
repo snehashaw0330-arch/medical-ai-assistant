@@ -18,6 +18,7 @@ export function useApiMutation({
   successText,
   invalidates,
   onSuccess,
+  toastErrors = true,
   ...options
 }) {
   const queryClient = useQueryClient()
@@ -29,6 +30,8 @@ export function useApiMutation({
       if (invalidates) queryClient.invalidateQueries({ queryKey: invalidates })
       onSuccess?.(data, variables, context)
     },
-    onError: (error) => toast.error(errorMessage(error, errorText)),
+    onError: (error) => {
+      if (toastErrors) toast.error(errorMessage(error, errorText))
+    },
   })
 }

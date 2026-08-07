@@ -30,12 +30,16 @@ let lookups = []
 let reports = []
 let recommendationGets = 0
 let reportGets = []
+let ragQueries = []
+let ragChunks = 7
 
 beforeEach(() => {
   lookups = []
   reports = [{ id: 'rec-1', medicines: ['aspirin'], created_at: '2026-08-01T10:00:00Z' }]
   recommendationGets = 0
   reportGets = []
+  ragQueries = []
+  ragChunks = 7
 
   routeGet(API, {
     '/medicine-info/': (url) => {
@@ -50,6 +54,14 @@ beforeEach(() => {
       reportGets.push(id)
       return { id, medicines: [{ detected_name: `storedreport${id.replace('-', '')}`, drug_info: {}, confidence_score: 90 }] }
     },
+    '/rag/status': () => ({
+      available: true,
+      vector_backend: 'chroma',
+      embedding_model: 'MiniLM',
+      llm_provider: 'offline',
+      indexed_chunks: ragChunks,
+      documents: [{ name: 'bnf.pdf' }],
+    }),
     '/medicine/recommendations': () => {
       recommendationGets += 1
       return { items: [...reports], total: reports.length }
@@ -57,6 +69,11 @@ beforeEach(() => {
   })
 
   routePost(API, {
+    '/rag/query': (_url, payload) => {
+      ragQueries.push(payload.question)
+      return { answer: 'Aspirin thins the blood.', chunks: [], llm_provider: 'offline' }
+    },
+    '/rag/index': () => ({ indexed_chunks: ragChunks, documents: 1 }),
     '/medicine/recommend': (_url, payload) => {
       const report = { id: 'rec-2', medicines: payload.medicines, created_at: '2026-08-05T10:00:00Z' }
       reports = [report, ...reports]
@@ -161,5 +178,54 @@ describe('medicine recommendations', () => {
     await user.click(await main.findByRole('button', { name: /aspirin/i }))
 
     expect(await screen.findByRole('heading', { name: /Storedreportrec1/i })).toBeInTheDocument()
+  })
+})
+
+/**
+ * The Knowledge Base is the one migrated page that reports failures in its own
+ * banner instead of a toast, via `toastErrors: false` on all four of its calls.
+ * That is worth pinning: the default is the opposite, and a page that quietly
+ * starts double-reporting — banner *and* toast, saying the same thing twice —
+ * is the kind of regression nobody files a bug about.
+ */
+describe('knowledge base', () => {
+  it('does not search while the question is being typed', async () => {
+    const user = userEvent.setup()
+    renderRoute('/knowledge/base')
+    await waitForRoute()
+
+    await user.type(screen.getByPlaceholderText(/Ask the knowledge base/i), 'side effects of aspirin')
+    expect(ragQueries).toEqual([])
+
+    const main = within(screen.getByRole('main'))
+    await user.click(main.getByRole('button', { name: /Search/i }))
+    await waitFor(() => expect(ragQueries).toEqual(['side effects of aspirin']))
+    expect(await screen.findByText(/Aspirin thins the blood/)).toBeInTheDocument()
+  })
+
+  it('refreshes the status panel after rebuilding the index', async () => {
+    const user = userEvent.setup()
+    renderRoute('/knowledge/base')
+    await waitForRoute()
+    expect(await screen.findByText('7')).toBeInTheDocument()
+
+    ragChunks = 42
+    await user.click(screen.getByRole('button', { name: /Rebuild Index/i }))
+
+    // The index rebuild changes the numbers this panel is showing.
+    expect(await screen.findByText('42')).toBeInTheDocument()
+  })
+
+  it('reports a failed rebuild once, in the banner', async () => {
+    const user = userEvent.setup()
+    renderRoute('/knowledge/base')
+    await waitForRoute()
+    await screen.findByText('7')
+
+    API.post.mockRejectedValue(new Error('chromadb is not installed'))
+    await user.click(screen.getByRole('button', { name: /Rebuild Index/i }))
+
+    // Exactly one: a toast on top of the banner would make this two.
+    await waitFor(() => expect(screen.getAllByText(/chromadb is not installed/)).toHaveLength(1))
   })
 })

@@ -48,6 +48,8 @@ export const qk = {
     // prefix that would re-fetch every report ever opened.
     recommendations: () => ['knowledge', 'recommendations'],
     recommendation: (id) => ['knowledge', 'recommendation', id],
+    ragStatus: () => ['knowledge', 'rag-status'],
+    answer: (question) => ['knowledge', 'answer', question],
   },
   benchmarks: {
     all: ['benchmarks'],

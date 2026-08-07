@@ -14,14 +14,20 @@ import { errorMessage } from '@/lib/utils'
  *
  * `errorText` is the fallback message; the server's own message wins when it
  * sends one, exactly as `errorMessage` already did.
+ *
+ * `toastErrors: false` is for the handful of pages that render the failure
+ * inline instead — the Knowledge Base explains a missing RAG dependency in a
+ * banner that has to stay on screen, and a toast on top of it would say the
+ * same thing twice and then vanish. It is opt-out, not opt-in, so the default
+ * stays "the toast cannot be forgotten".
  */
-export function useApiQuery({ errorText, ...options }) {
+export function useApiQuery({ errorText, toastErrors = true, ...options }) {
   const query = useQuery(options)
   const { error } = query
 
   useEffect(() => {
-    if (error) toast.error(errorMessage(error, errorText))
-  }, [error, errorText])
+    if (error && toastErrors) toast.error(errorMessage(error, errorText))
+  }, [error, errorText, toastErrors])
 
   return query
 }

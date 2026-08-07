@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import toast from 'react-hot-toast'
 import {
   BookOpen,
@@ -24,6 +24,9 @@ import {
   queryKnowledgeBase,
   uploadKnowledgeDoc,
 } from '@/lib/api'
+import { useApiQuery } from '@/shared/hooks/useApiQuery'
+import { useApiMutation } from '@/shared/hooks/useApiMutation'
+import { qk } from '@/shared/hooks/queryKeys'
 import { errorMessage, confidenceColor } from '@/lib/utils'
 
 const pct = (v) => Math.round((v || 0) * 100)
@@ -62,63 +65,73 @@ function ChunkCard({ chunk, rank }) {
 
 // ---------- page ----------
 export default function KnowledgeBase() {
-  const [status, setStatus] = useState(null)
+  // `question` is the box; `asked` is what has been searched for. Keying the
+  // query on the box would search on every keystroke.
   const [question, setQuestion] = useState('')
-  const [answer, setAnswer] = useState(null)
-  const [searching, setSearching] = useState(false)
-  const [indexing, setIndexing] = useState(false)
-  const [uploading, setUploading] = useState(false)
-  const [error, setError] = useState(null)
+  const [asked, setAsked] = useState('')
   const inputRef = useRef(null)
 
-  const refreshStatus = () => getRagStatus().then(setStatus).catch(() => setStatus(null))
-  useEffect(() => { refreshStatus() }, [])
+  // This page reports failures in its own banner — a missing RAG dependency
+  // needs a sentence that stays on screen — so the shared toast is opted out of
+  // on all four calls rather than fired alongside it.
+  const inline = { toastErrors: false }
 
-  const onUpload = async (file) => {
-    if (!file) return
-    setUploading(true)
-    setError(null)
-    try {
-      const res = await uploadKnowledgeDoc(file, { reindex: true })
-      toast.success(`Added ${res.filename} · index rebuilt`)
-      await refreshStatus()
-    } catch (err) {
-      setError(errorMessage(err, 'Upload failed.'))
-    } finally {
-      setUploading(false)
-      if (inputRef.current) inputRef.current.value = ''
-    }
-  }
+  const { data: status, error: statusError } = useApiQuery({
+    queryKey: qk.knowledge.ragStatus(),
+    queryFn: getRagStatus,
+    ...inline,
+  })
 
-  const rebuild = async () => {
-    setIndexing(true)
-    setError(null)
-    try {
-      const res = await rebuildRagIndex()
-      toast.success(`Indexed ${res.indexed_chunks} chunks from ${res.documents} documents`)
-      await refreshStatus()
-    } catch (err) {
-      setError(errorMessage(err, 'Indexing failed. Are the RAG dependencies installed?'))
-    } finally {
-      setIndexing(false)
-    }
-  }
+  const { data: answer, error: searchError, isFetching: searching } = useApiQuery({
+    queryKey: qk.knowledge.answer(asked),
+    queryFn: () => queryKnowledgeBase(asked),
+    enabled: Boolean(asked),
+    errorText: 'Search failed.',
+    ...inline,
+  })
 
-  const search = async (q = question) => {
+  const upload = useApiMutation({
+    mutationFn: (file) => uploadKnowledgeDoc(file, { reindex: true }),
+    errorText: 'Upload failed.',
+    // Both writes rebuild the index, so the status panel — document count,
+    // chunk count, availability — is stale the moment they return.
+    invalidates: qk.knowledge.ragStatus(),
+    onSuccess: (res) => toast.success(`Added ${res.filename} · index rebuilt`),
+    onSettled: () => { if (inputRef.current) inputRef.current.value = '' },
+    ...inline,
+  })
+
+  const reindex = useApiMutation({
+    mutationFn: rebuildRagIndex,
+    errorText: 'Indexing failed. Are the RAG dependencies installed?',
+    invalidates: qk.knowledge.ragStatus(),
+    onSuccess: (res) =>
+      toast.success(`Indexed ${res.indexed_chunks} chunks from ${res.documents} documents`),
+    ...inline,
+  })
+
+  const uploading = upload.isPending
+  const indexing = reindex.isPending
+
+  const onUpload = (file) => { if (file) upload.mutate(file) }
+  const rebuild = () => reindex.mutate()
+
+  const search = (q = question) => {
     const text = q.trim()
     if (!text || searching) return
-    setSearching(true)
-    setError(null)
-    setAnswer(null)
-    try {
-      const res = await queryKnowledgeBase(text)
-      setAnswer(res)
-    } catch (err) {
-      setError(errorMessage(err, 'Search failed.'))
-    } finally {
-      setSearching(false)
-    }
+    setQuestion(text)
+    setAsked(text)
   }
+
+  // One banner, whichever of the four calls failed most recently in the eyes of
+  // the user: a write they just triggered wins over a stale read.
+  const failure = upload.error || reindex.error || searchError || statusError
+  const error = failure
+    ? errorMessage(
+        failure,
+        failure === searchError ? 'Search failed.' : 'The knowledge base is unavailable.',
+      )
+    : null
 
   const available = status?.available
   const docs = status?.documents ?? []
