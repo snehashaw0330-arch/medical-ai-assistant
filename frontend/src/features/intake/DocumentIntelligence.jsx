@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import toast from 'react-hot-toast'
 import {
   FileSearch,
@@ -29,6 +29,9 @@ import {
   deleteDocumentRecord,
   fetchDocumentReportBlob,
 } from '@/lib/api'
+import { useApiQuery } from '@/shared/hooks/useApiQuery'
+import { useApiMutation } from '@/shared/hooks/useApiMutation'
+import { qk } from '@/shared/hooks/queryKeys'
 import { errorMessage, isCanceled, titleCase, formatDate } from '@/lib/utils'
 
 const DOCUMENT_TYPES = [
@@ -223,31 +226,16 @@ export default function DocumentIntelligence() {
   const [dragOver, setDragOver] = useState(false)
   const [documentType, setDocumentType] = useState('auto')
   const [progress, setProgress] = useState(0)
-  const [processing, setProcessing] = useState(false)
-  const [result, setResult] = useState(null)
-  const [error, setError] = useState(null)
-  const [downloading, setDownloading] = useState(false)
-  const [history, setHistory] = useState([])
-  const [historyLoading, setHistoryLoading] = useState(false)
   const inputRef = useRef(null)
   const abortRef = useRef(null)
 
-  const loadHistory = useCallback(async () => {
-    setHistoryLoading(true)
-    try {
-      const page = await getDocumentHistory({ page: 1, page_size: 8 })
-      setHistory(page.items || [])
-    } catch {
-      // Best-effort — history is a convenience panel, not core to the page.
-    } finally {
-      setHistoryLoading(false)
-    }
-  }, [])
-
-  // Fetch-on-mount: setState happens after the request resolves, which is the
-  // canonical pattern for fetch-on-mount/deps.
-  // eslint-disable-next-line react-hooks/set-state-in-effect
-  useEffect(() => { loadHistory() }, [loadHistory])
+  const { data: historyPage, isPending: historyLoading } = useApiQuery({
+    queryKey: qk.documents.history(),
+    queryFn: () => getDocumentHistory({ page: 1, page_size: 8 }),
+    // Best-effort — history is a convenience panel, not core to the page.
+    toastErrors: false,
+  })
+  const history = historyPage?.items ?? []
 
   const pickFile = (f) => {
     if (!f) return
@@ -256,73 +244,87 @@ export default function DocumentIntelligence() {
     if (!isImage && !isPdf) return toast.error('Please choose an image or PDF file')
     setFile(f)
     setPreview(isImage ? URL.createObjectURL(f) : null)
-    setResult(null)
-    setError(null)
+    analyze.reset()
+    open.reset()
   }
   const onDrop = (e) => { e.preventDefault(); setDragOver(false); pickFile(e.dataTransfer.files?.[0]) }
   const reset = () => {
-    setFile(null); setPreview(null); setResult(null); setError(null); setProgress(0)
+    setFile(null); setPreview(null); setProgress(0)
+    analyze.reset()
+    open.reset()
   }
 
-  const run = async () => {
-    if (!file) return
-    const controller = new AbortController()
-    abortRef.current = controller
-    setProcessing(true); setError(null); setResult(null); setProgress(0)
-    try {
-      const data = await analyzeDocument(file, {
-        documentType,
-        onProgress: setProgress,
-        signal: controller.signal,
-      })
-      setResult(data)
-      loadHistory()
-    } catch (err) {
-      if (!isCanceled(err)) {
-        setError(errorMessage(err, 'We could not analyze this document. Please try again.'))
+  // Upload progress and cancellation survive the migration unchanged: the
+  // controller is still created per run and still held in a ref, because
+  // `cancel()` needs to reach *this* request from outside the mutation.
+  const analyze = useApiMutation({
+    mutationFn: async () => {
+      const controller = new AbortController()
+      abortRef.current = controller
+      setProgress(0)
+      try {
+        return await analyzeDocument(file, {
+          documentType,
+          onProgress: setProgress,
+          signal: controller.signal,
+        })
+      } finally {
+        abortRef.current = null
       }
-    } finally {
-      setProcessing(false)
-      abortRef.current = null
-    }
-  }
+    },
+    // The page renders the failure inline, and a cancelled upload is not a
+    // failure at all — neither should raise a toast.
+    toastErrors: false,
+    invalidates: qk.documents.history(),
+    onSuccess: () => open.reset(),
+  })
 
+  const open = useApiMutation({
+    mutationFn: (id) => getDocument(id),
+    errorText: 'Could not load this record.',
+    onSuccess: () => {
+      setFile(null)
+      setPreview(null)
+      analyze.reset()
+    },
+  })
+
+  const result = analyze.data ?? open.data ?? null
+  const processing = analyze.isPending
+  // A cancelled request is a user action, not an error to report.
+  const error =
+    analyze.error && !isCanceled(analyze.error)
+      ? errorMessage(analyze.error, 'We could not analyze this document. Please try again.')
+      : null
+
+  const run = () => { if (file) analyze.mutate() }
   const cancel = () => abortRef.current?.abort()
+  const openHistoryItem = (id) => open.mutate(id)
 
-  const openHistoryItem = async (id) => {
-    try {
-      const detail = await getDocument(id)
-      setFile(null); setPreview(null); setError(null)
-      setResult({ ...detail })
-    } catch (err) {
-      toast.error(errorMessage(err, 'Could not load this record.'))
-    }
-  }
+  const removeRecord = useApiMutation({
+    mutationFn: (id) => deleteDocumentRecord(id),
+    errorText: 'Could not delete this record.',
+    invalidates: qk.documents.history(),
+  })
 
-  const removeHistoryItem = async (id, e) => {
+  const removeHistoryItem = (id, e) => {
     e.stopPropagation()
-    try {
-      await deleteDocumentRecord(id)
-      setHistory((prev) => prev.filter((h) => h.id !== id))
-    } catch (err) {
-      toast.error(errorMessage(err, 'Could not delete this record.'))
-    }
+    removeRecord.mutate(id)
   }
 
-  const downloadReport = async () => {
+  const download = useApiMutation({
+    mutationFn: (id) => fetchDocumentReportBlob(id),
+    errorText: 'Could not download the report.',
+    onSuccess: (blob, id) => downloadBlob(`medisense-document-${id}.json`, blob),
+  })
+  const downloading = download.isPending
+
+  const downloadReport = () => {
     if (!result?.id) {
       toast.error('This analysis has not been saved yet.')
       return
     }
-    setDownloading(true)
-    try {
-      const blob = await fetchDocumentReportBlob(result.id)
-      downloadBlob(`medisense-document-${result.id}.json`, blob)
-    } catch (err) {
-      toast.error(errorMessage(err, 'Could not download the report.'))
-    } finally {
-      setDownloading(false)
-    }
+    download.mutate(result.id)
   }
 
   return (

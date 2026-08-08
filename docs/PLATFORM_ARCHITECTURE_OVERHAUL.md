@@ -336,7 +336,7 @@ pediatric baseline (risk `moderate` / 51.0, infant red flag).
 | 7a — dependency vulns | **done** | | npm audit 9 -> 2; the 2 assessed as unreachable |
 | 3c — governance shell | **not started** | | see note below |
 | 3d — Chat into Copilot, shared FileIntake | **not started** | | |
-| 5 — TanStack Query migration | **19 of 27 pages** | `0d31210`…`0de616b` | 235 tests; 58/60 caught; `useState` 202 → 141 |
+| 5 — TanStack Query migration | **21 of 27 pages** | `0d31210`…`6090564` | 241 tests; 65/67 caught; `useState` 202 → 127 |
 | 6 — backend consolidation | **not started** | | 16 duplicated engine blocks untouched |
 | 7 — coverage & hardening | **not started** | | incl. the parked npm audit bumps |
 
@@ -350,8 +350,10 @@ All work is on the `architecture-overhaul` branch; `main` is untouched.
 Knowledge group migrated, both intake list pages, and two of the five clinical pages.
 `SymptomChecker` and `TreatmentSimulator` complete the clinical group apart from
 `DiseasePrediction`, which is **held** pending the product decision at the end of §3a.
-What remains: `AIGovernance`, `DocumentIntelligence`, `CopilotWorkspace`, and
-`PrescriptionOCR` last. `useApiQuery`/`useApiMutation` grew one
+What remains: `CopilotWorkspace` and `PrescriptionOCR` — the two heavy ones, each on its
+own. `DocumentIntelligence` was the rehearsal for the second: upload progress and
+`AbortSignal` both survive a mutation unchanged, and a cancelled upload stays a
+cancellation rather than becoming an error. `useApiQuery`/`useApiMutation` grew one
 option in the process: `toastErrors: false`, for pages that render the failure inline. It is
 opt-out, so the default stays "the toast cannot be forgotten". **No server polling is hand-rolled any
 more**: the four remaining `setInterval` calls in `features/` are UI animation timers (step
@@ -368,8 +370,8 @@ urgent, and it should use the same `tabGroup` mechanism 3b introduced rather tha
 shell.
 
 Each phase is mutation-tested, not just run: the suite is re-verified by deliberately
-breaking things and confirming it fails. **98 mutations introduced across six phases, 94
-caught, one a proven no-op and three redundant code** — ten of them only after a gap in the tests was found and closed. Every gap below
+breaking things and confirming it fails. **105 mutations introduced across six phases, 101
+caught, one a proven no-op and three redundant code** — twelve of them only after a gap in the tests was found and closed. Every gap below
 was found by breaking code, none by reading it.
 
 * **Phase 1 hid page crashes.** The new per-route error boundary swallowed a throwing page,

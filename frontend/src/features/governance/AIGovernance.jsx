@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import toast from 'react-hot-toast'
 import {
   ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
@@ -19,7 +19,10 @@ import {
   getDecisionTrace, getDecisionExplanation, getDecisionConfidence,
   governanceExportUrl,
 } from '@/lib/api'
-import { errorMessage, titleCase, formatDate, confidenceColor } from '@/lib/utils'
+import { useApiQuery } from '@/shared/hooks/useApiQuery'
+import { useApiMutation } from '@/shared/hooks/useApiMutation'
+import { qk } from '@/shared/hooks/queryKeys'
+import { titleCase, formatDate, confidenceColor } from '@/lib/utils'
 
 const STATUS_TONE = {
   success: 'success', partial: 'warning', low_confidence: 'warning', failed: 'danger',
@@ -110,21 +113,27 @@ function WhyBlock({ title, icon: Icon, items, tone = 'neutral', empty }) {
 
 // The slide-in decision detail: trace + explainability + confidence.
 function DecisionDetail({ traceId, onClose }) {
-  const [trace, setTrace] = useState(null)
-  const [explain, setExplain] = useState(null)
-  const [conf, setConf] = useState(null)
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    let alive = true
-    Promise.all([
-      getDecisionTrace(traceId), getDecisionExplanation(traceId), getDecisionConfidence(traceId),
-    ])
-      .then(([t, e, c]) => { if (alive) { setTrace(t); setExplain(e); setConf(c) } })
-      .catch((err) => toast.error(errorMessage(err, 'Could not load the decision')))
-      .finally(() => alive && setLoading(false))
-    return () => { alive = false }
-  }, [traceId])
+  // Three independent queries rather than one `Promise.all`: the drawer can
+  // show the trace as soon as it lands instead of waiting for the slowest of
+  // the three, and the `alive` flag against setting state after unmount is the
+  // cache's problem now.
+  const detail = { errorText: 'Could not load the decision' }
+  const { data: trace, isPending: tracePending } = useApiQuery({
+    queryKey: qk.governance.trace(traceId),
+    queryFn: () => getDecisionTrace(traceId),
+    ...detail,
+  })
+  const { data: explain, isPending: explainPending } = useApiQuery({
+    queryKey: qk.governance.explanation(traceId),
+    queryFn: () => getDecisionExplanation(traceId),
+    ...detail,
+  })
+  const { data: conf, isPending: confPending } = useApiQuery({
+    queryKey: qk.governance.confidence(traceId),
+    queryFn: () => getDecisionConfidence(traceId),
+    ...detail,
+  })
+  const loading = tracePending || explainPending || confPending
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end bg-black/40" onClick={onClose}>
@@ -232,61 +241,48 @@ function DecisionDetail({ traceId, onClose }) {
   )
 }
 
+const EMPTY_SEARCH = { patient: '', medicine: '', disease: '' }
+
 export default function AIGovernance() {
-  const [dash, setDash] = useState(null)
-  const [versions, setVersions] = useState(null)
-  const [loading, setLoading] = useState(true)
-  const [syncing, setSyncing] = useState(false)
-  const [decisions, setDecisions] = useState([])
-  const [query, setQuery] = useState({ patient: '', medicine: '', disease: '' })
+  // Draft (the three boxes) and applied (what was searched) — the same split
+  // the other filtered pages use, so typing does not search.
+  const [query, setQuery] = useState(EMPTY_SEARCH)
+  const [applied, setApplied] = useState(EMPTY_SEARCH)
   const [selected, setSelected] = useState(null)
 
-  const loadDash = async () => {
-    setLoading(true)
-    try {
-      const [d, v] = await Promise.all([getGovernanceDashboard(), getGovernanceVersions()])
-      setDash(d); setVersions(v)
-    } catch (err) {
-      toast.error(errorMessage(err, 'Could not load governance dashboard'))
-    } finally { setLoading(false) }
-  }
+  const { data: dash, isPending: loading } = useApiQuery({
+    queryKey: qk.governance.dashboard(),
+    queryFn: getGovernanceDashboard,
+    errorText: 'Could not load governance dashboard',
+  })
 
-  const loadDecisions = async () => {
-    try {
-      const page = await searchDecisions({ ...query, page_size: 25 })
-      setDecisions(page.items || [])
-    } catch (err) {
-      toast.error(errorMessage(err, 'Search failed'))
-    }
-  }
+  const { data: versions } = useApiQuery({
+    queryKey: qk.governance.versions(),
+    queryFn: getGovernanceVersions,
+    errorText: 'Could not load governance dashboard',
+  })
 
-  useEffect(() => {
-    let alive = true
-    ;(async () => {
-      try {
-        const [d, v] = await Promise.all([getGovernanceDashboard(), getGovernanceVersions()])
-        if (alive) { setDash(d); setVersions(v) }
-      } catch (err) {
-        toast.error(errorMessage(err, 'Could not load governance dashboard'))
-      } finally { if (alive) setLoading(false) }
-      try {
-        const p = await searchDecisions({ page_size: 25 })
-        if (alive) setDecisions(p.items || [])
-      } catch { /* surfaced above */ }
-    })()
-    return () => { alive = false }
-  }, [])
+  const searchParams = { ...applied, page_size: 25 }
+  const { data: decisionPage } = useApiQuery({
+    queryKey: qk.governance.decisions(searchParams),
+    queryFn: () => searchDecisions(searchParams),
+    errorText: 'Search failed',
+  })
+  const decisions = decisionPage?.items ?? []
 
-  const sync = async () => {
-    setSyncing(true)
-    try {
-      const res = await syncGovernance()
-      toast.success(res.message || 'Synced')
-      await loadDash(); await loadDecisions()
-    } catch (err) {
-      toast.error(errorMessage(err, 'Sync failed'))
-    } finally { setSyncing(false) }
-  }
+  const resync = useApiMutation({
+    mutationFn: syncGovernance,
+    errorText: 'Sync failed',
+    // A sync rewrites the whole governance store, so everything under the
+    // prefix goes — the dashboard, the versions and the decision search that
+    // the old code refreshed by calling both loaders in sequence.
+    invalidates: qk.governance.all,
+    onSuccess: (res) => toast.success(res.message || 'Synced'),
+  })
+
+  const sync = () => resync.mutate()
+  const syncing = resync.isPending
+  const loadDecisions = () => setApplied(query)
 
   const overTime = useMemo(
     () => (dash?.decisions_over_time || []).map((p) => ({ t: p.date?.slice(5), count: p.count })),

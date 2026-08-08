@@ -19,6 +19,10 @@ export const qk = {
     dashboard: () => ['governance', 'dashboard'],
     decisions: (params) => ['governance', 'decisions', params],
     pipeline: (traceId) => ['governance', 'pipeline', traceId],
+    versions: () => ['governance', 'versions'],
+    trace: (traceId) => ['governance', 'trace', traceId],
+    explanation: (traceId) => ['governance', 'explanation', traceId],
+    confidence: (traceId) => ['governance', 'confidence', traceId],
   },
   history: {
     all: ['history'],
@@ -72,6 +76,10 @@ export const qk = {
   simulation: {
     all: ['simulation'],
     history: () => ['simulation', 'history'],
+  },
+  documents: {
+    all: ['documents'],
+    history: () => ['documents', 'history'],
   },
   evidence: {
     all: ['evidence'],
