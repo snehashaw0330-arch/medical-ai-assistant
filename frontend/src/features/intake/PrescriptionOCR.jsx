@@ -34,6 +34,7 @@ import ClinicalReport from '@/shared/reports/ClinicalReport'
 import PrescriptionValidationReport from '@/shared/reports/PrescriptionValidationReport'
 import { extractPrescription, assessImageQuality, checkInteractions, checkValidation } from '@/lib/api'
 import { saveReport } from '@/lib/storage'
+import { useApiMutation } from '@/shared/hooks/useApiMutation'
 import { errorMessage, isCanceled, titleCase, confidenceColor, pct, freqText, isIdentified } from '@/lib/utils'
 import { generatePrescriptionPdf, readFileAsDataUrl, DISCLAIMER } from '@/lib/pdf'
 
@@ -257,20 +258,13 @@ export default function PrescriptionOCR() {
   const [imageDataUrl, setImageDataUrl] = useState(null)
   const [dragOver, setDragOver] = useState(false)
   const [progress, setProgress] = useState(0)
-  const [processing, setProcessing] = useState(false)
-  const [assessing, setAssessing] = useState(false)
-  const [quality, setQuality] = useState(null)     // image-quality report
   const [qualityGate, setQualityGate] = useState(false)  // low quality, awaiting user
-  const [result, setResult] = useState(null)
-  const [error, setError] = useState(null)
   const [meds, setMeds] = useState([])          // editable copy
   const [fields, setFields] = useState({})      // editable copy
   const [editing, setEditing] = useState(false)
   const [interactions, setInteractions] = useState(null)  // drug interaction report
   const [clinical, setClinical] = useState(null)          // clinical decision report
   const [validation, setValidation] = useState(null)      // prescription validation report
-  const [rechecking, setRechecking] = useState(false)
-  const [revalidating, setRevalidating] = useState(false)
   const [elapsed, setElapsed] = useState(0)
   const inputRef = useRef(null)
   const cameraRef = useRef(null)
@@ -281,7 +275,6 @@ export default function PrescriptionOCR() {
   // state from state costs an extra render pass on every analysis, and the
   // effect could only ever fire from this one call site anyway.
   const applyResult = (data) => {
-    setResult(data)
     setMeds(data.medicines || [])
     setFields(data.fields || {})
     setEditing(false)
@@ -297,43 +290,97 @@ export default function PrescriptionOCR() {
   }
 
   // Re-run prescription validation against the (possibly edited) medicine list.
-  const revalidate = async () => {
+  const revalidation = useApiMutation({
+    mutationFn: () =>
+      checkValidation({
+        medicines: meds,
+        rawText: result?.raw_text || '',
+        fields,
+        overallConfidence: result?.overall_confidence ?? null,
+      }),
+    errorText: 'Could not validate the prescription.',
+    onSuccess: setValidation,
+  })
+  const revalidating = revalidation.isPending
+
+  const revalidate = () => {
     if (!meds.length) {
       toast.error('Add at least one medicine to validate.')
       return
     }
-    setRevalidating(true)
-    try {
-      setValidation(
-        await checkValidation({
-          medicines: meds,
-          rawText: result?.raw_text || '',
-          fields,
-          overallConfidence: result?.overall_confidence ?? null,
-        }),
-      )
-    } catch (err) {
-      toast.error(errorMessage(err, 'Could not validate the prescription.'))
-    } finally {
-      setRevalidating(false)
-    }
+    revalidation.mutate()
   }
 
   // Re-run interaction analysis against the (possibly edited) medicine list.
-  const recheckInteractions = async () => {
+  const recheck = useApiMutation({
+    mutationFn: (names) => checkInteractions(names),
+    errorText: 'Could not check drug interactions.',
+    onSuccess: setInteractions,
+  })
+  const rechecking = recheck.isPending
+
+  const recheckInteractions = () => {
     const names = meds.map((m) => m.name).filter(Boolean)
     if (names.length < 2) {
       toast.error('Add at least two recognised medicines to check interactions.')
       return
     }
-    setRechecking(true)
-    try {
-      setInteractions(await checkInteractions(names))
-    } catch (err) {
-      toast.error(errorMessage(err, 'Could not check drug interactions.'))
-    } finally {
-      setRechecking(false)
-    }
+    recheck.mutate(names)
+  }
+
+  const pickFile = async (f) => {
+    if (!f) return
+    if (!f.type.startsWith('image/')) return toast.error('Please choose an image file')
+    setFile(f); setPreview(URL.createObjectURL(f))
+    ocr.reset(); qualityCheck.reset(); setQualityGate(false)
+    try { setImageDataUrl(await readFileAsDataUrl(f)) } catch { setImageDataUrl(null) }
+  }
+  const onDrop = (e) => { e.preventDefault(); setDragOver(false); pickFile(e.dataTransfer.files?.[0]) }
+  const reset = () => {
+    setFile(null); setPreview(null); setImageDataUrl(null)
+    setProgress(0); setQualityGate(false)
+    ocr.reset(); qualityCheck.reset()
+  }
+
+  // Run the actual OCR pipeline. The 5-minute timeout lives in the API layer;
+  // what has to be preserved here is the abort controller — held in a ref so
+  // `cancel()` can reach this specific request — and the progress callback.
+  const ocr = useApiMutation({
+    mutationFn: async () => {
+      const controller = new AbortController()
+      abortRef.current = controller
+      setProgress(0)
+      setElapsed(0)
+      try {
+        return await extractPrescription(file, {
+          onProgress: setProgress,
+          signal: controller.signal,
+        })
+      } finally {
+        abortRef.current = null
+      }
+    },
+    // The page shows failures inline, and a user-initiated cancel is not a
+    // failure at all — neither belongs in a toast.
+    toastErrors: false,
+    onSuccess: (data) => {
+      applyResult(data)
+      saveReport({ fileName: file.name, provider: data.provider, medicineCount: data.medicines?.length || 0, overall: data.overall_confidence })
+    },
+  })
+
+  const processing = ocr.isPending
+  const result = ocr.data ?? null
+  // A user-initiated cancel is NOT an error — stay silent.
+  const error =
+    ocr.error && !isCanceled(ocr.error)
+      ? errorMessage(ocr.error, 'We could not analyze this prescription. Please try again.')
+      : null
+
+  const runOcr = () => {
+    if (!file) return
+    setQualityGate(false)
+    ocr.mutate()
   }
 
   // Elapsed-time counter so the user sees progress during slow OCR. Derived from
@@ -351,67 +398,38 @@ export default function PrescriptionOCR() {
     return () => clearInterval(id)
   }, [processing])
 
-  const pickFile = async (f) => {
-    if (!f) return
-    if (!f.type.startsWith('image/')) return toast.error('Please choose an image file')
-    setFile(f); setPreview(URL.createObjectURL(f)); setResult(null); setError(null)
-    setQuality(null); setQualityGate(false)
-    try { setImageDataUrl(await readFileAsDataUrl(f)) } catch { setImageDataUrl(null) }
-  }
-  const onDrop = (e) => { e.preventDefault(); setDragOver(false); pickFile(e.dataTransfer.files?.[0]) }
-  const reset = () => {
-    setFile(null); setPreview(null); setImageDataUrl(null); setResult(null); setError(null)
-    setProgress(0); setQuality(null); setQualityGate(false)
-  }
-
-  // Run the actual OCR pipeline.
-  const runOcr = async () => {
-    if (!file) return
-    setQualityGate(false)
-    const controller = new AbortController()
-    abortRef.current = controller
-    setProcessing(true); setError(null); setResult(null); setProgress(0); setElapsed(0)
-    try {
-      const data = await extractPrescription(file, {
-        onProgress: setProgress,
-        signal: controller.signal,
-      })
-      applyResult(data)
-      saveReport({ fileName: file.name, provider: data.provider, medicineCount: data.medicines?.length || 0, overall: data.overall_confidence })
-    } catch (err) {
-      // A user-initiated cancel is NOT an error — stay silent and reset.
-      if (!isCanceled(err)) {
-        setError(errorMessage(err, 'We could not analyze this prescription. Please try again.'))
-      }
-    } finally {
-      setProcessing(false)
-      abortRef.current = null
-    }
-  }
+  // Quality check is best-effort — a failure must never block OCR, which is why
+  // this mutation's rejection is swallowed rather than surfaced.
+  const qualityCheck = useApiMutation({
+    mutationFn: () => assessImageQuality(file),
+    toastErrors: false,
+  })
+  const assessing = qualityCheck.isPending
+  const quality = qualityCheck.data ?? null
 
   // Entry point from the "Analyze" button: assess quality first, then either
   // proceed to OCR (good image) or gate on user confirmation (low quality).
   const run = async () => {
     if (!file) return
-    setError(null); setResult(null); setQuality(null); setQualityGate(false)
-    setAssessing(true)
+    ocr.reset()
+    qualityCheck.reset()
+    setQualityGate(false)
+
     let report = null
     try {
-      report = await assessImageQuality(file)
-      setQuality(report)
+      report = await qualityCheck.mutateAsync()
     } catch (err) {
-      // Quality check is best-effort — never block OCR if it fails.
-      if (isCanceled(err)) { setAssessing(false); return }
-    } finally {
-      setAssessing(false)
+      if (isCanceled(err)) return
+      // Any other failure is ignored on purpose: OCR still runs.
     }
+
     // Warn (and wait) only when we got a report saying quality is too low.
     if (report && report.passed === false) {
       setQualityGate(true)
       toast.error(`Low image quality (${Math.round(report.overall_score)}%). Please review before continuing.`)
       return
     }
-    await runOcr()
+    runOcr()
   }
 
   const cancel = () => abortRef.current?.abort()
