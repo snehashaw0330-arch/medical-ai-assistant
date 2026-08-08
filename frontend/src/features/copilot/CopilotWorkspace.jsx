@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import {
   Bot,
@@ -33,11 +34,13 @@ import {
   copilotAnalyze,
   copilotChat,
   getCopilotContext,
-  getCopilotHistory,
   getCopilotPipeline,
   getSymptoms,
 } from '@/lib/api'
-import { errorMessage, titleCase, formatDate } from '@/lib/utils'
+import { useApiQuery } from '@/shared/hooks/useApiQuery'
+import { useApiMutation } from '@/shared/hooks/useApiMutation'
+import { qk } from '@/shared/hooks/queryKeys'
+import { titleCase, formatDate } from '@/lib/utils'
 
 const SESSION_KEY = 'copilot_session_id'
 const RISK_TONE = { critical: 'danger', high: 'danger', moderate: 'warning', low: 'primary' }
@@ -115,79 +118,109 @@ export default function CopilotWorkspace() {
   const [file, setFile] = useState(null)
   const [medicines, setMedicines] = useState([])
   const [symptoms, setSymptoms] = useState([])
-  const [symptomOptions, setSymptomOptions] = useState([])
-  const [loading, setLoading] = useState(false)
-  const [analysis, setAnalysis] = useState(null)
-  const [context, setContext] = useState(null)
-  const [messages, setMessages] = useState([])
-  const [pipeline, setPipeline] = useState(FALLBACK_PIPELINE)
   const [tab, setTab] = useState('conversation')
   const [chatInput, setChatInput] = useState('')
-  const [chatBusy, setChatBusy] = useState(false)
   const fileRef = useRef(null)
   const chatEndRef = useRef(null)
+  const queryClient = useQueryClient()
 
-  const hydrate = async (sid) => {
-    try {
-      // GET /copilot/context (+ /copilot/history) rehydrate the remembered
-      // patient session so a page reload keeps the same patient.
-      const [ctx] = await Promise.all([getCopilotContext(sid), getCopilotHistory(sid)])
-      setContext(ctx.context)
-      setMessages(ctx.messages || [])
-      if (ctx.last_analysis) setAnalysis(ctx.last_analysis)
-    } catch {
-      // Session may have expired server-side — start fresh silently.
-      localStorage.removeItem(SESSION_KEY)
-      setSessionId(null)
-    }
-  }
+  const { data: symptomOptions = [] } = useApiQuery({
+    queryKey: qk.clinical.symptomOptions(),
+    queryFn: getSymptoms,
+    toastErrors: false,
+  })
 
-  useEffect(() => {
-    getSymptoms().then(setSymptomOptions).catch(() => setSymptomOptions([]))
-    getCopilotPipeline().then((s) => s.length && setPipeline(s)).catch(() => {})
-    // hydrate is async (awaits the network before any setState) — the rule is a
-    // false positive here.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    if (sessionId) hydrate(sessionId)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  const { data: steps } = useApiQuery({
+    queryKey: qk.copilot.pipeline(),
+    queryFn: getCopilotPipeline,
+    toastErrors: false,
+  })
+  const pipeline = steps?.length ? steps : FALLBACK_PIPELINE
+
+  // The remembered patient session, so a page reload keeps the same patient.
+  // The old hydrate also fetched `/copilot/history` and threw the result away
+  // — one request per hydrate for nothing — so it is gone.
+  const { data: session } = useApiQuery({
+    queryKey: qk.copilot.session(sessionId),
+    queryFn: async () => {
+      try {
+        return await getCopilotContext(sessionId)
+      } catch (err) {
+        // A session the server no longer knows about has to be forgotten here
+        // too, or every reload retries a dead id. Handled at the fetch rather
+        // than in an effect watching the error, which would run a render later
+        // and needs its own guard against repeating.
+        localStorage.removeItem(SESSION_KEY)
+        setSessionId(null)
+        throw err
+      }
+    },
+    enabled: Boolean(sessionId),
+    // An expired session is handled above, not reported to the user.
+    toastErrors: false,
+  })
+
+  const context = session?.context ?? null
+  // Memoised because the scroll effect below depends on it, and a fresh []
+  // every render would scroll on every render.
+  const messages = useMemo(() => session?.messages ?? [], [session])
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
-  const run = async () => {
+  /** Append a turn to the cached transcript — the transcript has one home. */
+  const appendMessage = (id, message) =>
+    queryClient.setQueryData(qk.copilot.session(id), (prev) =>
+      prev ? { ...prev, messages: [...(prev.messages || []), message] } : prev,
+    )
+
+  const analyze = useApiMutation({
+    mutationFn: () =>
+      copilotAnalyze({ file, sessionId, medicines, symptoms, includeRag: true, useCache: true }),
+    errorText: 'Copilot analysis failed. Is the backend running?',
+    successText: 'Analysis complete — patient context updated.',
+    onSuccess: (data) => {
+      setSessionId(data.session_id)
+      localStorage.setItem(SESSION_KEY, data.session_id)
+      // The analysis rewrites the patient context, so re-read the session.
+      queryClient.invalidateQueries({ queryKey: qk.copilot.session(data.session_id) })
+      setTab('analysis')
+      setFile(null)
+      if (fileRef.current) fileRef.current.value = ''
+    },
+  })
+
+  // A fresh analysis wins; on reload the session's stored one takes over.
+  const analysis = analyze.data ?? session?.last_analysis ?? null
+  const loading = analyze.isPending
+
+  const chat = useApiMutation({
+    mutationFn: (msg) => copilotChat(sessionId, msg),
+    errorText: 'Chat failed.',
+    // The user's turn goes up before the request, as it always did.
+    onMutate: (msg) =>
+      appendMessage(sessionId, { role: 'user', content: msg, at: new Date().toISOString() }),
+    onSuccess: (res) =>
+      appendMessage(sessionId, {
+        role: 'assistant',
+        content: res.reply,
+        references: res.references,
+        at: res.at,
+      }),
+  })
+  const chatBusy = chat.isPending
+
+  const run = () => {
     if (!file && !medicines.length && !symptoms.length) {
       toast.error('Upload a prescription or add medicines / symptoms first.')
       return
     }
-    setLoading(true)
     setTab('reasoning')
-    try {
-      const data = await copilotAnalyze({
-        file,
-        sessionId,
-        medicines,
-        symptoms,
-        includeRag: true,
-        useCache: true,
-      })
-      setAnalysis(data)
-      setSessionId(data.session_id)
-      localStorage.setItem(SESSION_KEY, data.session_id)
-      await hydrate(data.session_id)
-      setTab('analysis')
-      setFile(null)
-      if (fileRef.current) fileRef.current.value = ''
-      toast.success('Analysis complete — patient context updated.')
-    } catch (err) {
-      toast.error(errorMessage(err, 'Copilot analysis failed. Is the backend running?'))
-    } finally {
-      setLoading(false)
-    }
+    analyze.mutate()
   }
 
-  const sendChat = async () => {
+  const sendChat = () => {
     const msg = chatInput.trim()
     if (!msg) return
     if (!sessionId) {
@@ -195,22 +228,14 @@ export default function CopilotWorkspace() {
       return
     }
     setChatInput('')
-    setMessages((m) => [...m, { role: 'user', content: msg, at: new Date().toISOString() }])
-    setChatBusy(true)
-    try {
-      const res = await copilotChat(sessionId, msg)
-      setMessages((m) => [...m, { role: 'assistant', content: res.reply, references: res.references, at: res.at }])
-    } catch (err) {
-      toast.error(errorMessage(err, 'Chat failed.'))
-    } finally {
-      setChatBusy(false)
-    }
+    chat.mutate(msg)
   }
 
   const resetSession = () => {
     localStorage.removeItem(SESSION_KEY)
-    setSessionId(null); setContext(null); setMessages([]); setAnalysis(null)
+    setSessionId(null)
     setMedicines([]); setSymptoms([]); setFile(null)
+    analyze.reset()
     toast.success('Started a new patient session.')
   }
 

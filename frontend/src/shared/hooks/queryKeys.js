@@ -77,6 +77,11 @@ export const qk = {
     all: ['simulation'],
     history: () => ['simulation', 'history'],
   },
+  copilot: {
+    all: ['copilot'],
+    session: (sessionId) => ['copilot', 'session', sessionId],
+    pipeline: () => ['copilot', 'pipeline'],
+  },
   documents: {
     all: ['documents'],
     history: () => ['documents', 'history'],
