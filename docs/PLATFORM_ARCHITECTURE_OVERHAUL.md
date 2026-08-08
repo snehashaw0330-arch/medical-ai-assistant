@@ -336,11 +336,12 @@ pediatric baseline (risk `moderate` / 51.0, infant red flag).
 | 7a — dependency vulns | **done** | | npm audit 9 -> 2; the 2 assessed as unreachable |
 | 3c — governance shell | **not started** | | see note below |
 | 3d — Chat into Copilot, shared FileIntake | **not started** | | |
-| 5 — TanStack Query migration | **26 of 27 pages** | `0d31210`…`1ad2362` | 253 tests; 76/80 caught; `useState` 202 → 113 |
+| 5 — TanStack Query migration | **done — 27 of 27** | `0d31210`…`72e740b` | 259 tests; 83/87 caught; `useState` 202 → 113; 0 `setLoading`/`setError` left |
 | 6 — backend consolidation | **not started** | | 16 duplicated engine blocks untouched |
 | 7 — coverage & hardening | **not started** | | incl. the parked npm audit bumps |
 
-All work is on the `architecture-overhaul` branch; `main` is untouched.
+Phases 1–5 were merged to `main` on 2026-08-08 via PR #1 (`caf9c3d`); `72e740b`
+(`DiseasePrediction`) sits on `main` after it. Later work continues on `main`.
 
 **Note on 5.** Migrated so far: `AuditLogs`, `ModelRegistry`, `DatasetRegistry`,
 `PatientContext`, `DigitalTwin`, `PipelineViewer`, `AgentMonitor`, `DatasetEvaluation`,
@@ -348,10 +349,20 @@ All work is on the `architecture-overhaul` branch; `main` is untouched.
 `EvidenceExplorer`, `MedicalReports`, `PrescriptionHistory`, `ClinicalDecision`,
 `ClinicalReasoning` — tranches 1 and 2 (read-only, then polling) complete, the whole
 Knowledge group migrated, both intake list pages, and two of the five clinical pages.
-`SymptomChecker` and `TreatmentSimulator` complete the clinical group apart from
-`DiseasePrediction`, which is **held** pending the product decision at the end of §3a.
-**One page remains: `DiseasePrediction`**, held for the product decision at the end of this
-section — nothing else in Phase 5 is outstanding. `PrescriptionOCR` is done, migrated last
+`SymptomChecker` and `TreatmentSimulator` complete the clinical group.
+
+**`DiseasePrediction` closed the phase (2026-08-08, `72e740b`).** The product decision it
+was held for was resolved as *label the numbers and migrate in one pass*: the model scores
+top-1 = 1.000 only because its 304 unique rows are duplicated 16×, so the results panel now
+carries a "Demo dataset — not calibrated probabilities" note beside the ranked list, and
+"Ranked by probability" became "Ranked by match strength". The page-top "small dataset"
+banner already existed and was not sufficient — it sits three cards from the numbers and
+says nothing about what is wrong with them. Real clinical data and confidence calibration
+remain open; this labels the gap rather than closing it. Two behaviours are pinned by test
+because neither is visible when broken: the follow-up buttons pass symptoms as the
+mutation's *variables* (reading `selected` submits the previous render's value), and the
+symptom vocabulary's shared cache key is enforced structurally across all five call sites in
+`architecture.test.js`. `PrescriptionOCR` is done, migrated last
 as planned: the 5-minute timeout, upload progress, `AbortSignal` cancellation, the quality
 gate and the inline auto-chain all survive, each with a test. `CopilotWorkspace` is done — its transcript now lives in the query cache
 rather than in a second copy of the messages, so a chat turn and the session's own history
