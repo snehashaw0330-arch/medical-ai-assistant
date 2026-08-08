@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import toast from 'react-hot-toast'
 import {
   Stethoscope,
@@ -24,7 +24,10 @@ import EmptyState from '@/ui/EmptyState'
 import { getSymptoms, predictDisease } from '@/lib/api'
 import { savePrediction, getPredictions } from '@/lib/storage'
 import { getFollowups } from '@/lib/followups'
-import { errorMessage, titleCase, formatDate } from '@/lib/utils'
+import { useApiQuery } from '@/shared/hooks/useApiQuery'
+import { useApiMutation } from '@/shared/hooks/useApiMutation'
+import { qk } from '@/shared/hooks/queryKeys'
+import { titleCase, formatDate } from '@/lib/utils'
 
 const TOP_K = 5
 const RELIABLE_MIN = 60 // below this (top %) the result is not specific enough
@@ -44,43 +47,49 @@ const readMatched = (r) =>
 const readUnmatched = (r) => r.unmatched_inputs ?? r.unmatched_symptoms ?? []
 
 export default function DiseasePrediction() {
-  const [allSymptoms, setAllSymptoms] = useState([])
   const [selected, setSelected] = useState([])
-  const [result, setResult] = useState(null)
-  const [loading, setLoading] = useState(false)
   // Seeded lazily from localStorage: reading it in an effect only to setState
-  // costs an extra render and trips the cascading-render rule.
+  // costs an extra render and trips the cascading-render rule. This is browser
+  // state, not server state, so it stays a `useState` rather than a query.
   const [history, setHistory] = useState(getPredictions)
 
-  useEffect(() => {
-    getSymptoms()
-      .then(setAllSymptoms)
-      .catch(() => toast.error('Could not load symptom list. Is the API running?'))
-  }, [])
+  // Shared with three other pages under one key, so whichever mounts second
+  // serves the vocabulary from cache. This page toasts on failure where the
+  // others stay quiet: elsewhere the list is autocomplete garnish, here it is
+  // the only way to enter anything.
+  const { data: allSymptoms = [] } = useApiQuery({
+    queryKey: qk.clinical.symptomOptions(),
+    queryFn: getSymptoms,
+    errorText: 'Could not load symptom list. Is the API running?',
+  })
 
-  const predict = async (symptoms = selected) => {
+  const prediction = useApiMutation({
+    mutationFn: (symptoms) => predictDisease(symptoms, TOP_K),
+    errorText: 'Prediction failed',
+    // The symptoms arrive as the mutation's variables rather than off
+    // `selected`: a follow-up answer calls `setSelected(next)` and predicts in
+    // the same handler, where `selected` is still the previous render's value.
+    onSuccess: (data, symptoms) => {
+      if (!data.predictions?.length) return
+      savePrediction({
+        symptoms,
+        topDisease: data.predictions[0].disease,
+        confidence: data.predictions[0].confidence,
+        level: data.confidence_level,
+      })
+      setHistory(getPredictions())
+    },
+  })
+
+  const result = prediction.data ?? null
+  const loading = prediction.isPending
+
+  const predict = (symptoms = selected) => {
     if (symptoms.length === 0) {
       toast.error('Add at least one symptom')
       return
     }
-    setLoading(true)
-    try {
-      const data = await predictDisease(symptoms, TOP_K)
-      setResult(data)
-      if (data.predictions?.length) {
-        savePrediction({
-          symptoms,
-          topDisease: data.predictions[0].disease,
-          confidence: data.predictions[0].confidence,
-          level: data.confidence_level,
-        })
-        setHistory(getPredictions())
-      }
-    } catch (err) {
-      toast.error(errorMessage(err, 'Prediction failed'))
-    } finally {
-      setLoading(false)
-    }
+    prediction.mutate(symptoms)
   }
 
   const addSymptom = (label) => {
@@ -265,8 +274,32 @@ export default function DiseasePrediction() {
                 <h2 className="text-lg font-semibold text-foreground">
                   Possible Conditions
                 </h2>
-                <span className="text-xs text-muted">Ranked by probability</span>
+                <span className="text-xs text-muted">Ranked by match strength</span>
               </div>
+
+              {/* The model behind these scores is trained on 304 unique rows
+                  duplicated 16x, so it scores a perfect top-1 against its own
+                  data — a measure of memorisation, not of clinical accuracy.
+                  The banner at the top of the page says "small dataset", but it
+                  is three cards away from the numbers and does not say what is
+                  wrong with *them*: a bare "97.3% / High" reads as a calibrated
+                  probability. Qualify it here, next to the ranked list, and once
+                  rather than on each of five cards. */}
+              {predictions.length > 0 && (
+                <div className="flex items-start gap-2 rounded-xl border border-border bg-surface-2 px-3 py-2">
+                  <Info size={14} className="mt-0.5 shrink-0 text-muted" />
+                  <p className="text-xs text-muted">
+                    <span className="font-semibold text-foreground">
+                      Demo dataset.
+                    </span>{' '}
+                    These percentages describe how closely your symptoms matched
+                    patterns in a small teaching dataset. They are{' '}
+                    <span className="font-semibold">not calibrated probabilities</span>{' '}
+                    and say nothing about how often the condition is the right
+                    answer in real patients.
+                  </p>
+                </div>
+              )}
 
               {predictions.length === 0 ? (
                 // The backend refuses to rank below its floors and says exactly

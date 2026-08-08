@@ -70,6 +70,26 @@ describe('layering', () => {
     expect(offenders).toEqual([])
   })
 
+  it('fetches the symptom vocabulary under one shared key', () => {
+    // Five pages offer the same symptom autocomplete and share a single cache
+    // entry for it — with the app's 60s staleTime, only the first to mount
+    // actually fetches. A page that spells the key differently still works and
+    // still shows the right suggestions; it just silently refetches the whole
+    // vocabulary on every visit. Nothing at runtime distinguishes the two.
+    const sites = []
+    for (const [path, code] of Object.entries(source)) {
+      for (const [, key] of code.matchAll(
+        /queryKey:\s*(.+),\s*\n\s*queryFn:\s*getSymptoms\b/g,
+      )) {
+        sites.push({ path, key: key.trim() })
+      }
+    }
+    // Guard against the regex quietly matching nothing, which would pass this
+    // test no matter what the pages did.
+    expect(sites.length).toBeGreaterThanOrEqual(5)
+    expect(sites.filter((s) => s.key !== 'qk.clinical.symptomOptions()')).toEqual([])
+  })
+
   it('routes every page through the route table', () => {
     // A page component that nothing routes to is dead weight; one routed
     // outside the table would be invisible to the sidebar and the palette.
