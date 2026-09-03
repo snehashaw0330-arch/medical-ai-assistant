@@ -16,8 +16,16 @@ check drug interactions, and produce an auditable clinical report. FastAPI backe
 has no wheels for 3.14, which is the default `python3` on many machines.
 
 ```bash
+# macOS / Linux
 python3.12 -m venv venv
 ./venv/bin/pip install -r backend/requirements.txt   # includes torch, easyocr, chroma, gemini
+npm --prefix frontend install
+```
+
+```powershell
+# Windows (PowerShell)
+py -3.12 -m venv venv
+.\venv\Scripts\pip install -r backend\requirements.txt   # includes torch, easyocr, chroma, gemini
 npm --prefix frontend install
 ```
 
@@ -46,7 +54,12 @@ make serve                      # backend  -> http://127.0.0.1:8000  (docs at /d
 npm --prefix frontend run dev   # frontend -> http://127.0.0.1:5173  (proxies /api)
 ```
 
-`make help` lists every target.
+`make help` lists every target. No `make` on Windows (e.g. no Git Bash/WSL)? Run the target's
+command directly, e.g.:
+
+```powershell
+.\venv\Scripts\python.exe -m uvicorn backend.app:app --host 127.0.0.1 --port 8000 --reload
+```
 
 ## Verify
 

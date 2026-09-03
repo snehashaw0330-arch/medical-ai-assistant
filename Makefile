@@ -3,7 +3,7 @@
 # The venv must be Python 3.12: the ML stack (torch / easyocr / chromadb) has no
 # wheels for the system 3.14.
 
-PY := ./venv/bin/python
+PY := ./venv/Scripts/python.exe
 NPM := npm --prefix frontend
 
 .DEFAULT_GOAL := help
